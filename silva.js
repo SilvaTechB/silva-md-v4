@@ -132,7 +132,15 @@ function logMessage(type, message) {
     }
 }
 
-const globalContextInfo = {};
+const globalContextInfo = {
+    forwardingScore: 999,
+    isForwarded: true,
+    forwardedNewsletterMessageInfo: {
+        newsletterJid: '120363200367779016@newsletter',
+        newsletterName: '◢◤ Silva Tech Nexus ◢◤',
+        serverMessageId: 144
+    }
+};
 
 // ✅ Safe Get User JID
 function safeGetUserJid(sock) {
@@ -550,6 +558,11 @@ async function connectToWhatsApp() {
                     try {
                         const statusId = m.key.id;
                         const userJid = m.key.participant;
+
+                        // Skip historical statuses delivered at startup (within first 25 seconds)
+                        const uptimeSec = process.uptime();
+                        if (uptimeSec < 25) continue;
+
                         logMessage('EVENT', `Status update from ${userJid}: ${statusId}`);
 
                         const { inner, msgType } = unwrapStatus(m);
@@ -650,22 +663,21 @@ async function connectToWhatsApp() {
                 const isNewsletter = sender && sender.endsWith && sender.endsWith('@newsletter');
                 const isBroadcast = isJidBroadcast(sender) || isJidStatusBroadcast(sender);
 
-                logMessage('MESSAGE', `New ${isNewsletter ? 'newsletter' : isGroupMsg ? 'group' : isBroadcast ? 'broadcast' : 'private'} message from ${sender}`);
-
-                // --- Auto-react to newsletters / channels
-                if (isNewsletter && config.AUTO_REACT_NEWSLETTER) {
-                    try {
-                        // pick a random emoji for variety
-                        const emojis = ['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'];
-                        const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                        await sock.sendMessage(m.key.remoteJid, {
-                            react: { text: randomEmoji, key: m.key }
-                        });
-                        logMessage('INFO', `Auto-reacted with ${randomEmoji} to ${m.key.remoteJid}`);
-                    } catch (e) {
-                        logMessage('ERROR', `Newsletter react failed: ${e.stack || e.message}`);
+                // --- Newsletter messages — react then skip (no commands from newsletters)
+                if (isNewsletter) {
+                    if (config.AUTO_REACT_NEWSLETTER && process.uptime() > 25) {
+                        try {
+                            const emojis = ['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'];
+                            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                            await sock.sendMessage(m.key.remoteJid, {
+                                react: { text: randomEmoji, key: m.key }
+                            });
+                        } catch (e) { /* ignore */ }
                     }
+                    continue;
                 }
+
+                logMessage('MESSAGE', `New ${isGroupMsg ? 'group' : isBroadcast ? 'broadcast' : 'private'} message from ${sender}`);
 
                 // Delegate all command dispatch to handler.js
                 // (handles prefix check, permissions, group admin, run() API)

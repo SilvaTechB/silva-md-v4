@@ -50,8 +50,16 @@ async function safeSend(sock, jid, content, opts = {}) {
     }
 }
 
-// Context info kept empty — newsletter watermarks cause "waiting for this message" in groups
-const GLOBAL_CONTEXT_INFO = {};
+// Newsletter watermark — only safe in private chats; groups get an empty object
+const GLOBAL_CONTEXT_INFO = {
+    forwardingScore: 999,
+    isForwarded: true,
+    forwardedNewsletterMessageInfo: {
+        newsletterJid: '120363200367779016@newsletter',
+        newsletterName: '◢◤ Silva Tech Nexus ◢◤',
+        serverMessageId: 144
+    }
+};
 
 // ─── Plugin loader ───────────────────────────────────────────────────────────
 const plugins = [];
@@ -166,7 +174,7 @@ async function handleMessages(sock, message) {
             text,
             prefix,
             groupMetadata,
-            contextInfo:   GLOBAL_CONTEXT_INFO,
+            contextInfo:   isGroup ? {} : GLOBAL_CONTEXT_INFO,
             mentionedJid:  msg.extendedTextMessage?.contextInfo?.mentionedJid || [],
             safeSend:      (content, opts) => safeSend(sock, jid, content, opts),
             reply:         (replyText) => safeSend(sock, jid, { text: replyText }, { quoted: message })
