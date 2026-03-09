@@ -254,9 +254,15 @@ async function handleMessages(sock, message) {
             }
 
             // ── Auto-presence: show typing or recording before responding ──────
+            let presenceSent = false;
             try {
-                const presenceType = RECORDING_CMDS.has(command) ? 'recording' : 'composing';
-                await sock.sendPresenceUpdate(presenceType, jid);
+                const wantRecording = config.AUTO_RECORDING && RECORDING_CMDS.has(command);
+                const wantTyping    = config.AUTO_TYPING    && !RECORDING_CMDS.has(command);
+                if (wantRecording || wantTyping) {
+                    const presenceType = wantRecording ? 'recording' : 'composing';
+                    await sock.sendPresenceUpdate(presenceType, jid);
+                    presenceSent = true;
+                }
             } catch { /* non-fatal */ }
 
             try {
@@ -270,7 +276,9 @@ async function handleMessages(sock, message) {
             }
 
             // ── Auto-presence: back to paused after responding ──────────────
-            try { await sock.sendPresenceUpdate('paused', jid); } catch { /* non-fatal */ }
+            if (presenceSent) {
+                try { await sock.sendPresenceUpdate('paused', jid); } catch { /* non-fatal */ }
+            }
         }
     } catch (err) {
         console.error('[Handler] Fatal:', err.stack || err.message);
