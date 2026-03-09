@@ -58,13 +58,14 @@ All 31 plugins use a unified shape:
 
 **ctx object keys:** `sock, conn, m, message, sender, jid, chat, isGroup, isAdmin, isBotAdmin, isOwner, args, text, prefix, groupMetadata, contextInfo, mentionedJid, safeSend, reply`
 
-## Installed Plugins (31)
+## Installed Plugins (33)
 
 | Plugin | Commands | Permission |
 |--------|----------|------------|
-| afk | afk, back, afklist | public |
+| afk | afk, back | owner |
 | anticall | anticall | owner |
-| antidelete | antidelete, antidel | admin |
+| antidelete | antidelete, antidel | owner |
+| antidemote | antidemote | admin |
 | apk | apk, apkdl, getapk | public |
 | autoreply | autoreply, ar | admin |
 | blocklist | blocklist, listblock | owner |
@@ -75,6 +76,7 @@ All 31 plugins use a unified shape:
 | gitclone | gitclone | public |
 | hello | hello | public |
 | instagram | instagram, igdl, ig, insta | public |
+| menu | menu, help, list | public |
 | music | play | public |
 | repo | repo, repository, github | public |
 | shazam | shazam, identify, song | public |
@@ -99,4 +101,8 @@ All 31 plugins use a unified shape:
 - The bot requires a `SESSION_ID` secret to connect to WhatsApp. Without it, the web dashboard still runs but the bot won't connect.
 - Session data is stored in the `session/` directory.
 - Baileys: `@whiskeysockets/baileys@6.7.21` — direct stable release (no alias)
-- The handler normalizer (`handler` → `run`) has been removed; all plugins use `run` natively.
+- `config.OWNER_NUMBER` is set dynamically on `connection.update → open` from `sock.user.id` — no need to hardcode it.
+- `handler.js` exports: `handleMessages, safeSend, setupConnectionHandlers, PERM, plugins`
+- Anti-delete (`messages.update` + `messages.delete`) always forwards recovered/edited messages to owner JID only.
+- Anti-demote: `group-participants.update` listener re-promotes demoted admins in groups tracked by `global.antiDemoteGroups` (Set).
+- AFK auto-reply fires before prefix check for non-owner messages; owner messages bypass it so `.back` always works.

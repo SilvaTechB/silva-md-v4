@@ -355,8 +355,13 @@ async function connectToWhatsApp() {
         } else if (connection === 'open') {
             logMessage('SUCCESS', '✅ Connected to WhatsApp');
 
-            // store bot jid for mention detection
+            // Store bot JID and set owner number to the connected number
             global.botJid = sock.user.id;
+            const rawNum = sock.user.id.includes(':')
+                ? sock.user.id.split(':')[0]
+                : sock.user.id.split('@')[0];
+            config.OWNER_NUMBER = rawNum;
+            logMessage('INFO', `Owner number set to: ${rawNum}`);
 
             // Update profile & send welcome
             await updateProfileStatus(sock);
@@ -390,40 +395,65 @@ async function connectToWhatsApp() {
         }
     });
 
-    // ✅ Anti-delete handler (messages.update)
+    // ✅ Anti-delete/anti-edit handler (messages.update)
     sock.ev.on("messages.update", async (updates) => {
         for (const { key, update } of updates) {
             if (key.remoteJid === "status@broadcast") continue;
-            if (update?.message === null && !key.fromMe) {
-                const cacheKey = `${key.remoteJid}-${key.id}`;
-                const original = messageCache.get(cacheKey);
-                const owner = safeGetUserJid(sock);
+            if (key.fromMe) continue;
 
-                if (!original?.message || !owner) continue;
-                
-                sock.sendMessage(owner, {
-                    text: `🚨 *Anti-Delete* — Message recovered from ${key.participant || key.remoteJid}`,
-                    contextInfo: globalContextInfo
-                }).catch(() => {});
+            const isGroup   = key.remoteJid?.endsWith('@g.us');
+            if ((isGroup && !config.ANTIDELETE_GROUP) || (!isGroup && !config.ANTIDELETE_PRIVATE)) continue;
 
+            const ownerJid  = `${config.OWNER_NUMBER}@s.whatsapp.net`;
+            const cacheKey  = `${key.remoteJid}-${key.id}`;
+            const original  = messageCache.get(cacheKey);
+            const sender    = key.participant || key.remoteJid;
+            const senderNum = sender.split('@')[0];
+
+            // ── Deleted message ──────────────────────────────────────────────
+            if (update?.message === null) {
+                if (!original?.message) continue;
                 const msgObj = original.message;
-                const mType = Object.keys(msgObj)[0];
+                const mType  = Object.keys(msgObj)[0];
+                const label  = isGroup ? `Group: ${key.remoteJid.split('@')[0]}` : 'Private';
 
                 try {
+                    await sock.sendMessage(ownerJid, {
+                        text: `🗑️ *Deleted Message Recovered*\n👤 From: @${senderNum}\n📌 ${label}`,
+                        contextInfo: globalContextInfo,
+                        mentions: [sender]
+                    });
                     if (["conversation", "extendedTextMessage"].includes(mType)) {
-                        const text = msgObj.conversation || msgObj.extendedTextMessage?.text;
-                        await sock.sendMessage(owner, { text, contextInfo: globalContextInfo });
+                        const text = msgObj.conversation || msgObj.extendedTextMessage?.text || '';
+                        await sock.sendMessage(ownerJid, { text, contextInfo: globalContextInfo });
                     } else if (["imageMessage", "videoMessage", "audioMessage", "stickerMessage", "documentMessage"].includes(mType)) {
                         const stream = await downloadContentFromMessage(msgObj[mType], mType.replace("Message", ""));
                         let buffer = Buffer.from([]);
                         for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
-                        const field = mType.replace("Message", "");
+                        const field   = mType.replace("Message", "");
                         const payload = { [field]: buffer, contextInfo: globalContextInfo };
                         if (msgObj[mType]?.caption) payload.caption = msgObj[mType].caption;
-                        await sock.sendMessage(owner, payload);
+                        await sock.sendMessage(ownerJid, payload);
                     }
                 } catch (err) {
-                    logMessage("DEBUG", `Recovery failed: ${err.message}`);
+                    logMessage("DEBUG", `Delete recovery failed: ${err.message}`);
+                }
+            }
+
+            // ── Edited message ───────────────────────────────────────────────
+            const editedMsg = update?.message?.protocolMessage?.editedMessage;
+            if (editedMsg) {
+                const oldText  = original?.message?.conversation || original?.message?.extendedTextMessage?.text || '(unknown)';
+                const newText  = editedMsg.conversation || editedMsg.extendedTextMessage?.text || '(media)';
+                const label    = isGroup ? `Group: ${key.remoteJid.split('@')[0]}` : 'Private';
+                try {
+                    await sock.sendMessage(ownerJid, {
+                        text: `✏️ *Edited Message*\n👤 From: @${senderNum}\n📌 ${label}\n\n*Before:* ${oldText}\n*After:* ${newText}`,
+                        contextInfo: globalContextInfo,
+                        mentions: [sender]
+                    });
+                } catch (err) {
+                    logMessage("DEBUG", `Edit recovery failed: ${err.message}`);
                 }
             }
         }
@@ -454,9 +484,9 @@ async function connectToWhatsApp() {
                 const msg = deletedMsg.message;
                 const msgType = Object.keys(msg)[0];
 
-                const caption = `⚠️ *Anti-Delete Alert!*\n\n👤 *Sender:* @${senderName}\n*Chat:* ${isGroup ? 'Group' : 'Private'}\n\n💬 *Restored Message:*`;
+                const caption = `🗑️ *Anti-Delete Alert!*\n\n👤 *Sender:* @${senderName}\n📌 *Chat:* ${isGroup ? 'Group' : 'Private'}\n\n💬 *Restored Message:*`;
                 const opts = { contextInfo: { mentionedJid: [sender] } };
-                const targetJid = config.ANTIDELETE_SEND_TO_ORIGINAL ? from : ownerJid;
+                const targetJid = ownerJid;
 
                 switch (msgType) {
                     case 'conversation':
@@ -495,6 +525,27 @@ async function connectToWhatsApp() {
             }
         } catch (err) {
             logMessage('ERROR', `Anti-Delete Error: ${err.stack || err.message}`);
+        }
+    });
+
+    // ✅ Anti-Demote: kick anyone who demotes a group admin
+    sock.ev.on('group-participants.update', async ({ id, participants, action }) => {
+        try {
+            if (action !== 'demote') return;
+            if (!global.antiDemoteGroups?.has(id)) return;
+
+            // Re-promote the demoted admin and remove the demoter is tricky — instead we kick the demoter
+            // The demoter is NOT in `participants` (those are the ones being demoted)
+            // We just re-promote the demoted admins and notify
+            logMessage('INFO', `Anti-Demote triggered in ${id}: re-promoting ${participants.join(', ')}`);
+            await sock.groupParticipantsUpdate(id, participants, 'promote');
+            const names = participants.map(p => `@${p.split('@')[0]}`).join(', ');
+            await sock.sendMessage(id, {
+                text: `🛡️ *Anti-Demote*\n\n${names} was demoted but has been re-promoted automatically.`,
+                mentions: participants
+            });
+        } catch (err) {
+            logMessage('WARN', `Anti-Demote error: ${err.message}`);
         }
     });
 

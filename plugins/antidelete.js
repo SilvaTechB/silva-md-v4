@@ -1,26 +1,36 @@
 'use strict';
 
+const config = require('../config');
+
 module.exports = {
     commands:    ['antidelete', 'antidel'],
-    description: 'Toggle anti-delete notifications for this group — admin only',
-    permission:  'admin',
+    description: 'Toggle anti-delete — recovers deleted and edited messages and forwards them to you',
+    permission:  'owner',
     group:       true,
-    private:     false,
-    run: async (sock, message, args, { jid, sender, isAdmin, isOwner, contextInfo }) => {
-        const action = args[0]?.toLowerCase();
-        await sock.sendMessage(sender, {
-            text:
-`🛡️ *Anti-Delete Info*
+    private:     true,
 
-The anti-delete feature is managed globally from the bot's main settings (config.env).
+    run: async (sock, message, args, ctx) => {
+        const { safeSend, contextInfo } = ctx;
+        const action = (args[0] || '').toLowerCase();
 
-• *ANTIDELETE_GROUP* — catches deleted messages in groups
-• *ANTIDELETE_PRIVATE* — catches deleted messages in private chats
-
-To change settings, update your config.env and restart the bot.
-
-Current group anti-delete: ${process.env.ANTIDELETE_GROUP !== 'false' ? 'ENABLED' : 'DISABLED'}`,
-            contextInfo
-        }, { quoted: message });
+        if (action === 'on') {
+            config.ANTIDELETE_GROUP   = true;
+            config.ANTIDELETE_PRIVATE = true;
+            await safeSend({
+                text: '🛡️ *Anti-Delete is ON*\n\nDeleted and edited messages will be recovered and forwarded to you in both groups and private chats.',
+                contextInfo
+            }, { quoted: message });
+        } else if (action === 'off') {
+            config.ANTIDELETE_GROUP   = false;
+            config.ANTIDELETE_PRIVATE = false;
+            await safeSend({ text: '🛡️ *Anti-Delete is OFF*', contextInfo }, { quoted: message });
+        } else {
+            const groupStatus   = config.ANTIDELETE_GROUP   ? '✅ ON' : '❌ OFF';
+            const privateStatus = config.ANTIDELETE_PRIVATE ? '✅ ON' : '❌ OFF';
+            await safeSend({
+                text: `🛡️ *Anti-Delete Status*\n\n📌 Groups: ${groupStatus}\n📌 Private: ${privateStatus}\n\n*Usage:*\n• \`.antidelete on\` — enable\n• \`.antidelete off\` — disable`,
+                contextInfo
+            }, { quoted: message });
+        }
     }
 };

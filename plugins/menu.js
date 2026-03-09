@@ -2,18 +2,19 @@
 
 const fs   = require('fs');
 const path = require('path');
+const config = require('../config');
 
-const CATEGORIES = {
-    'Downloader': ['yt', 'youtube', 'tiktok', 'tt', 'ttdl', 'tiktokdl', 'facebook', 'fb', 'fbdl', 'instagram', 'igdl', 'ig', 'insta', 'apk', 'apkdl', 'getapk'],
-    'Music':      ['play', 'shazam', 'identify', 'song'],
-    'AI & Tools': ['ai', 'gpt', 'chatgpt', 'shorten', 'tourl', 'imgtourl', 'imgurl', 'geturl', 'upload', 'scanurl', 'urlscan', 'checksafe', 'gitclone'],
-    'Media':      ['sticker', 's', 'vv', 'antivv', 'avv', 'viewonce', 'open', 'openphoto', 'openvideo', 'vvphoto'],
-    'Group':      ['anticall', 'antidelete', 'antidel', 'autoreply', 'ar', 'afk', 'back', 'afklist', 'blocklist', 'listblock'],
-    'Info':       ['ping', 'uptime', 'runtime', 'owner', 'creator', 'repo', 'repository', 'github', 'getjid', 'jid', 'spp', 'profile', 'getpp', 'weather', 'climate', 'mosam'],
-    'Status':     ['save', 'nitumie', 'statussave'],
-    'Fun':        ['hello', 'test', 'botdemo', 'features'],
-    'Calls':      ['call', 'support', 'ss'],
-};
+const CATEGORIES = [
+    { icon: '📥', name: 'Downloaders',  primary: ['yt', 'tiktok', 'instagram', 'facebook', 'apk'] },
+    { icon: '🎵', name: 'Music',         primary: ['play', 'shazam'] },
+    { icon: '🤖', name: 'AI & Tools',   primary: ['ai', 'shorten', 'gitclone', 'scanurl', 'tourl'] },
+    { icon: '🖼️', name: 'Media',         primary: ['sticker', 'viewonce'] },
+    { icon: '👥', name: 'Group',         primary: ['antidemote', 'antidelete', 'afk', 'autoreply', 'anticall', 'blocklist'] },
+    { icon: '📊', name: 'Status',        primary: ['save'] },
+    { icon: 'ℹ️',  name: 'Info',          primary: ['ping', 'uptime', 'owner', 'weather', 'getjid', 'spp'] },
+    { icon: '🎮', name: 'Fun',           primary: ['hello', 'test'] },
+    { icon: '📞', name: 'Calls',         primary: ['call'] },
+];
 
 module.exports = {
     commands:    ['menu', 'help', 'list'],
@@ -23,7 +24,7 @@ module.exports = {
     private:     true,
 
     run: async (sock, message, args, ctx) => {
-        const { sender, prefix, reply } = ctx;
+        const { prefix, safeSend, contextInfo } = ctx;
 
         const plugins  = loadPlugins();
         const allCmds  = new Set(plugins.flatMap(p => p.commands || []));
@@ -34,41 +35,53 @@ module.exports = {
             hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi'
         });
 
-        const lines = [];
-        lines.push(`╭─────────────────────`);
-        lines.push(`│ *✦ Silva MD — Menu*`);
-        lines.push(`│ ${now}`);
-        lines.push(`│ Prefix: \`${prefix}\``);
-        lines.push(`╰─────────────────────`);
-        lines.push('');
+        const botNum = (config.OWNER_NUMBER || '').replace(/\D/g, '');
 
-        for (const [cat, cmds] of Object.entries(CATEGORIES)) {
-            const found = cmds.filter(c => allCmds.has(c) && !assigned.has(c));
+        const lines = [];
+        lines.push(`╭━━━━━━━━━━━━━━━━━━━━━━━╮`);
+        lines.push(`┃  🤖 *SILVA MD — MENU*  ┃`);
+        lines.push(`╰━━━━━━━━━━━━━━━━━━━━━━━╯`);
+        lines.push(``);
+        lines.push(`📅 ${now}`);
+        lines.push(`📱 +${botNum}`);
+        lines.push(`🔑 Prefix: *${prefix}*`);
+        lines.push(`📦 ${plugins.length} plugins loaded`);
+        lines.push(``);
+        lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+        for (const { icon, name, primary } of CATEGORIES) {
+            const found = primary.filter(c => allCmds.has(c));
             if (!found.length) continue;
             found.forEach(c => assigned.add(c));
-            lines.push(`*${cat}*`);
-            lines.push(found.map(c => `  \`${prefix}${c}\``).join('  '));
-            lines.push('');
+
+            lines.push(``);
+            lines.push(`${icon} *${name.toUpperCase()}*`);
+            for (const cmd of found) {
+                lines.push(`  › \`${prefix}${cmd}\``);
+            }
         }
 
-        const rest = [...allCmds].filter(c => !assigned.has(c) && c !== 'menu' && c !== 'help' && c !== 'list');
+        const rest = [...allCmds].filter(c => !assigned.has(c) && !['menu','help','list'].includes(c));
         if (rest.length) {
-            lines.push(`*Other*`);
-            lines.push(rest.map(c => `  \`${prefix}${c}\``).join('  '));
-            lines.push('');
+            lines.push(``);
+            lines.push(`🔧 *OTHER*`);
+            for (const cmd of rest) {
+                lines.push(`  › \`${prefix}${cmd}\``);
+            }
         }
 
-        lines.push(`_${plugins.length} plugins • Type ${prefix}help <cmd> for details_`);
+        lines.push(``);
+        lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━`);
+        lines.push(`_Type \`${prefix}help <command>\` for details_`);
 
-        await reply(lines.join('\n'));
+        await safeSend({ text: lines.join('\n'), contextInfo }, { quoted: message });
     }
 };
 
 function loadPlugins() {
-    const dir   = path.join(__dirname);
-    const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
-    const out   = [];
-    for (const f of files) {
+    const dir = path.join(__dirname);
+    const out = [];
+    for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
         try {
             const p = require(path.join(dir, f));
             if (Array.isArray(p.commands) && p.commands.length) out.push(p);

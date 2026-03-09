@@ -1,6 +1,8 @@
 'use strict';
 
-const afkStore = new Map();
+let afkActive = false;
+let afkReason  = 'No reason given';
+let afkSince   = 0;
 
 function formatDuration(ms) {
     const s = Math.floor(ms / 1000);
@@ -14,61 +16,42 @@ function formatDuration(ms) {
 }
 
 module.exports = {
-    commands:    ['afk', 'back', 'afklist'],
-    description: 'Set or clear your AFK status; notify when AFK users are mentioned',
-    permission:  'public',
+    commands:    ['afk', 'back'],
+    description: 'Owner AFK mode — bot auto-replies to everyone while you are away',
+    permission:  'owner',
     group:       true,
     private:     true,
 
-    run: async (sock, message, args, { jid, sender, contextInfo, safeSend, mentionedJid }) => {
-        const command = (message.message?.conversation || message.message?.extendedTextMessage?.text || '')
-            .trim().split(/\s+/)[0].replace(/^\./, '').toLowerCase();
+    isAfk:      () => afkActive,
+    getAfkData: () => ({ reason: afkReason, since: afkSince }),
 
-        if (command === 'afk') {
-            const reason = args.join(' ') || 'No reason given';
-            afkStore.set(sender, { since: Date.now(), reason });
-            await safeSend({ text: `🌙 You are now AFK.\n📝 Reason: ${reason}`, contextInfo }, { quoted: message });
+    run: async (sock, message, args, ctx) => {
+        const { safeSend, contextInfo } = ctx;
+        const cmdText = (message.message?.conversation || message.message?.extendedTextMessage?.text || '')
+            .trim().split(/\s+/)[0].replace(/^[^a-zA-Z]*/, '').toLowerCase();
+
+        if (cmdText === 'afk') {
+            afkActive = true;
+            afkReason  = args.join(' ') || 'No reason given';
+            afkSince   = Date.now();
+            await safeSend({
+                text: `🌙 *AFK Mode Activated*\n\n📝 Reason: ${afkReason}\n\n_Anyone who messages will receive an auto-reply until you use .back_`,
+                contextInfo
+            }, { quoted: message });
             return;
         }
 
-        if (command === 'back') {
-            const data = afkStore.get(sender);
-            if (!data) {
-                await safeSend({ text: "You weren't AFK.", contextInfo }, { quoted: message });
+        if (cmdText === 'back') {
+            if (!afkActive) {
+                await safeSend({ text: '✅ AFK mode is not currently active.', contextInfo }, { quoted: message });
                 return;
             }
-            afkStore.delete(sender);
-            const duration = formatDuration(Date.now() - data.since);
-            await safeSend({ text: `🌸 Welcome back! You were away for *${duration}*.`, contextInfo }, { quoted: message });
-            return;
-        }
-
-        if (command === 'afklist') {
-            if (afkStore.size === 0) {
-                await safeSend({ text: '🌼 No one is AFK right now.', contextInfo }, { quoted: message });
-                return;
-            }
-            let list = '🌿 *AFK Users:*\n\n';
-            for (const [id, data] of afkStore) {
-                const duration = formatDuration(Date.now() - data.since);
-                list += `• @${id.split('@')[0]} — ${data.reason} _(${duration})_\n`;
-            }
-            await safeSend({ text: list, contextInfo, mentions: [...afkStore.keys()] }, { quoted: message });
-        }
-    },
-
-    onMessage: async (sock, message, text, { jid, sender, contextInfo, safeSend, mentionedJid }) => {
-        if (!mentionedJid?.length) return;
-        for (const jidMentioned of mentionedJid) {
-            const data = afkStore.get(jidMentioned);
-            if (data) {
-                const duration = formatDuration(Date.now() - data.since);
-                await safeSend({
-                    text: `🌙 @${jidMentioned.split('@')[0]} is AFK\n📝 Reason: ${data.reason}\n⏱ Away for: ${duration}`,
-                    contextInfo,
-                    mentions: [jidMentioned]
-                }, { quoted: message });
-            }
+            const duration = formatDuration(Date.now() - afkSince);
+            afkActive = false;
+            await safeSend({
+                text: `🌸 *Welcome back!*\n\n⏱ You were away for *${duration}*.`,
+                contextInfo
+            }, { quoted: message });
         }
     }
 };

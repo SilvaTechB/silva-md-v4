@@ -102,6 +102,17 @@ function setupConnectionHandlers(sock) {
 }
 
 // ─── Main message handler ────────────────────────────────────────────────────
+function formatDuration(ms) {
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const d = Math.floor(h / 24);
+    if (d > 0) return `${d}d ${h % 24}h`;
+    if (h > 0) return `${h}h ${m % 60}m`;
+    if (m > 0) return `${m}m ${s % 60}s`;
+    return `${s}s`;
+}
+
 async function handleMessages(sock, message) {
     try {
         const msg = message.message;
@@ -124,6 +135,18 @@ async function handleMessages(sock, message) {
             msg.extendedTextMessage?.text ||
             msg.imageMessage?.caption ||
             msg.videoMessage?.caption || '';
+
+        // ── AFK auto-reply (fires before prefix check, not for owner's own messages) ──
+        if (!message.key.fromMe) {
+            const afkPlugin = plugins.find(p => p.commands?.includes('afk') && typeof p.isAfk === 'function');
+            if (afkPlugin?.isAfk()) {
+                const { reason, since } = afkPlugin.getAfkData();
+                await safeSend(sock, jid, {
+                    text: `🤖 *Beep boop!* This is a bot.\n\n👤 My owner is currently away.\n📝 *Reason:* ${reason}\n⏱ *Away for:* ${formatDuration(Date.now() - since)}`,
+                }, { quoted: message });
+                return;
+            }
+        }
 
         if (!text.startsWith(prefix)) return;
 
@@ -221,4 +244,4 @@ async function handleMessages(sock, message) {
     }
 }
 
-module.exports = { handleMessages, safeSend, setupConnectionHandlers, PERM };
+module.exports = { handleMessages, safeSend, setupConnectionHandlers, PERM, plugins };
