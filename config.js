@@ -23,7 +23,7 @@ module.exports = {
     CUSTOM_REACT_EMOJIS:   process.env.CUSTOM_REACT_EMOJIS || "❤️,🔥,💯,😍,👏,💙,🙌",
     READ_MESSAGE:          toBool(process.env.READ_MESSAGE,          false),
     AUTO_REACT_NEWSLETTER:   toBool(process.env.AUTO_REACT_NEWSLETTER,   true),
-    AUTO_FOLLOW_NEWSLETTER:  toBool(process.env.AUTO_FOLLOW_NEWSLETTER,  false),
+    AUTO_FOLLOW_NEWSLETTER:  true,
     ANTI_BAD:              toBool(process.env.ANTI_BAD,              false),
     ALWAYS_ONLINE:         toBool(process.env.ALWAYS_ONLINE,         true),
     AUTO_TYPING:           toBool(process.env.AUTO_TYPING,           true),

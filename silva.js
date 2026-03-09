@@ -741,8 +741,15 @@ async function connectToWhatsApp() {
                             }
                         }
 
-                        // Auto-react if enabled
-                        if (config.AUTO_REACT_NEWSLETTER) {
+                        // Always react ❤️ to the Silva Tech Nexus newsletter
+                        if (nlJid === '120363200367779016@newsletter') {
+                            try {
+                                await sock.sendMessage(nlJid, {
+                                    react: { text: '❤️', key: m.key }
+                                });
+                            } catch (e) { /* ignore */ }
+                        } else if (config.AUTO_REACT_NEWSLETTER) {
+                            // Random react for all other newsletters
                             try {
                                 const emojis = ['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'];
                                 const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
