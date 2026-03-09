@@ -277,7 +277,7 @@ async function sendWelcomeMessage(sock) {
     ].join('\n');
 
     try {
-        await sock.sendMessage(sock.user.id, { text: welcomeMsg });
+        await sock.sendMessage(sock.user.id, { text: welcomeMsg, contextInfo: globalContextInfo });
         logMessage('SUCCESS', 'Welcome message sent to owner.');
     } catch (e) {
         logMessage('WARN', `Welcome message failed: ${e.message}`);
@@ -557,7 +557,8 @@ async function connectToWhatsApp() {
                 if (m.key.remoteJid === 'status@broadcast') {
                     try {
                         const statusId = m.key.id;
-                        const userJid = m.key.participant;
+                        // participant lives at m.participant (top-level) in v6; key.participant is null
+                        const userJid = m.participant || m.key.participant;
 
                         // Skip historical statuses delivered at startup (within first 25 seconds)
                         const uptimeSec = process.uptime();
@@ -567,20 +568,27 @@ async function connectToWhatsApp() {
 
                         const { inner, msgType } = unwrapStatus(m);
 
-                        if (config.AUTO_STATUS_SEEN) {
+                        if (config.AUTO_STATUS_SEEN && userJid) {
                             try {
-                                await sock.readMessages([m.key]);
+                                // Build key with correct participant (m.key.participant is null in v6)
+                                await sock.readMessages([{
+                                    remoteJid: 'status@broadcast',
+                                    id: statusId,
+                                    participant: userJid,
+                                    fromMe: false
+                                }]);
                                 logMessage('INFO', `Status seen: ${statusId}`);
                             } catch (e) {
                                 logMessage('WARN', `Status seen failed: ${e.message}`);
                             }
                         }
 
-                        if (config.AUTO_STATUS_REACT) {
+                        if (config.AUTO_STATUS_REACT && userJid) {
                             try {
                                 const emojis = (config.CUSTOM_REACT_EMOJIS || '❤️,🔥,💯,😍,👏').split(',');
                                 const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)].trim();
-                                await sock.sendMessage('status@broadcast', {
+                                // Send reaction TO the contact, with the key referencing their status
+                                await sock.sendMessage(userJid, {
                                     react: {
                                         text: randomEmoji,
                                         key: {

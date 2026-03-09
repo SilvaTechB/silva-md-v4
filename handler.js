@@ -105,7 +105,7 @@ function setupConnectionHandlers(sock) {
 async function handleMessages(sock, message) {
     try {
         const msg = message.message;
-        if (!msg || message.key.fromMe) return;
+        if (!msg) return;
 
         // jid  = the chat to respond to (group JID or private JID)
         // from = the individual who typed the command
@@ -134,9 +134,10 @@ async function handleMessages(sock, message) {
         console.log(`[HANDLER] cmd=${command} jid=${jid} from=${from}`);
 
         // ── Resolve owner ─────────────────────────────────────────────────────
+        // fromMe = owner is using their own device as the bot
         const ownerNum  = (config.OWNER_NUMBER || '').replace(/\D/g, '');
         const fromNum   = from.replace(/\D/g, '').replace(/:.*$/, '');
-        const isOwner   = fromNum === ownerNum;
+        const isOwner   = message.key.fromMe || fromNum === ownerNum;
 
         // ── Resolve group admin status ────────────────────────────────────────
         let isAdmin    = false;
