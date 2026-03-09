@@ -1,19 +1,20 @@
 'use strict';
 
-const fs   = require('fs');
-const path = require('path');
+const fs     = require('fs');
+const path   = require('path');
 const config = require('../config');
 
 const CATEGORIES = [
-    { icon: '📥', name: 'Downloaders',  primary: ['yt', 'tiktok', 'instagram', 'facebook', 'apk'] },
-    { icon: '🎵', name: 'Music',         primary: ['play', 'shazam'] },
-    { icon: '🤖', name: 'AI & Tools',   primary: ['ai', 'shorten', 'gitclone', 'scanurl', 'tourl'] },
-    { icon: '🖼️', name: 'Media',         primary: ['sticker', 'viewonce'] },
-    { icon: '👥', name: 'Group',         primary: ['antidemote', 'antidelete', 'afk', 'autoreply', 'anticall', 'blocklist'] },
-    { icon: '📊', name: 'Status',        primary: ['save'] },
-    { icon: 'ℹ️',  name: 'Info',          primary: ['ping', 'uptime', 'owner', 'weather', 'getjid', 'spp'] },
-    { icon: '🎮', name: 'Fun',           primary: ['hello', 'test'] },
-    { icon: '📞', name: 'Calls',         primary: ['call'] },
+    { icon: '⬇️',  name: 'Downloaders',   cmds: ['yt', 'tiktok', 'instagram', 'facebook', 'apk'] },
+    { icon: '🎵',  name: 'Music',          cmds: ['play', 'shazam'] },
+    { icon: '🤖',  name: 'AI & Tools',    cmds: ['ai', 'shorten', 'gitclone', 'scanurl', 'tourl'] },
+    { icon: '🖼️',  name: 'Media',          cmds: ['sticker', 'vv'] },
+    { icon: '🛡️',  name: 'Group Tools',   cmds: ['antidemote', 'antidelete', 'antilink', 'afk', 'autoreply', 'anticall', 'blocklist', 'antidemote'] },
+    { icon: '📰',  name: 'Newsletter',     cmds: ['newsletter', 'followchannel', 'unfollowchannel', 'channelinfo'] },
+    { icon: '📊',  name: 'Status',         cmds: ['save'] },
+    { icon: 'ℹ️',  name: 'Info & Misc',    cmds: ['ping', 'uptime', 'owner', 'weather', 'getjid', 'spp', 'repo'] },
+    { icon: '🎮',  name: 'Fun',            cmds: ['hello', 'test'] },
+    { icon: '📞',  name: 'Calls',          cmds: ['call'] },
 ];
 
 module.exports = {
@@ -24,57 +25,93 @@ module.exports = {
     private:     true,
 
     run: async (sock, message, args, ctx) => {
-        const { prefix, safeSend, contextInfo } = ctx;
+        const { prefix, contextInfo } = ctx;
+        const jid = message.key.remoteJid;
 
         const plugins  = loadPlugins();
         const allCmds  = new Set(plugins.flatMap(p => p.commands || []));
         const assigned = new Set();
 
         const now = new Date().toLocaleString('en-US', {
-            weekday: 'short', month: 'short', day: 'numeric',
-            hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi'
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+            hour: '2-digit', minute: '2-digit', hour12: true,
+            timeZone: 'Africa/Nairobi'
         });
 
-        const botNum = (config.OWNER_NUMBER || '').replace(/\D/g, '');
+        const botNum  = `+${(config.OWNER_NUMBER || '').replace(/\D/g, '')}`;
+        const botName = config.BOT_NAME || 'Silva MD';
+        const pfx     = prefix;
 
-        const lines = [];
-        lines.push(`╭━━━━━━━━━━━━━━━━━━━━━━━╮`);
-        lines.push(`┃  🤖 *SILVA MD — MENU*  ┃`);
-        lines.push(`╰━━━━━━━━━━━━━━━━━━━━━━━╯`);
-        lines.push(``);
-        lines.push(`📅 ${now}`);
-        lines.push(`📱 +${botNum}`);
-        lines.push(`🔑 Prefix: *${prefix}*`);
-        lines.push(`📦 ${plugins.length} plugins loaded`);
-        lines.push(``);
-        lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━`);
-
-        for (const { icon, name, primary } of CATEGORIES) {
-            const found = primary.filter(c => allCmds.has(c));
+        // ── Build category blocks ──────────────────────────────────────────
+        const catBlocks = [];
+        for (const { icon, name, cmds } of CATEGORIES) {
+            const found = [...new Set(cmds.filter(c => allCmds.has(c)))];
             if (!found.length) continue;
             found.forEach(c => assigned.add(c));
 
-            lines.push(``);
-            lines.push(`${icon} *${name.toUpperCase()}*`);
-            for (const cmd of found) {
-                lines.push(`  › \`${prefix}${cmd}\``);
-            }
+            const rows = found.map(c => `│  ${icon} \`${pfx}${c}\``).join('\n');
+            catBlocks.push(
+                `╭──「 ${icon} *${name}* 」\n${rows}\n╰──────────────────`
+            );
         }
 
+        // ── Overflow bucket ────────────────────────────────────────────────
         const rest = [...allCmds].filter(c => !assigned.has(c) && !['menu','help','list'].includes(c));
         if (rest.length) {
-            lines.push(``);
-            lines.push(`🔧 *OTHER*`);
-            for (const cmd of rest) {
-                lines.push(`  › \`${prefix}${cmd}\``);
-            }
+            const rows = rest.map(c => `│  🔧 \`${pfx}${c}\``).join('\n');
+            catBlocks.push(`╭──「 🔧 *Other* 」\n${rows}\n╰──────────────────`);
         }
 
-        lines.push(``);
-        lines.push(`━━━━━━━━━━━━━━━━━━━━━━━━`);
-        lines.push(`_Type \`${prefix}help <command>\` for details_`);
+        // ── Assemble full text ─────────────────────────────────────────────
+        const header = [
+            `┏━━━━━━━━━━━━━━━━━━━━━━━━┓`,
+            `┃   ⚡ *${botName.toUpperCase()} COMMANDS*   ┃`,
+            `┗━━━━━━━━━━━━━━━━━━━━━━━━┛`,
+            ``,
+            `🤖 *Bot:* ${botName}`,
+            `📱 *Number:* ${botNum}`,
+            `🔑 *Prefix:* \`${pfx}\``,
+            `📦 *Plugins:* ${plugins.length}`,
+            `🕐 *Time:* ${now}`,
+            ``,
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+        ].join('\n');
 
-        await safeSend({ text: lines.join('\n'), contextInfo }, { quoted: message });
+        const footer = [
+            ``,
+            `━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+            `💬 _Type \`${pfx}help <command>\` for details_`,
+            `🌐 _silvatech.co.ke_`,
+            `📢 _Follow our newsletter for updates!_`,
+        ].join('\n');
+
+        const fullText = `${header}\n\n${catBlocks.join('\n\n')}\n${footer}`;
+
+        // ── Send with bot image ────────────────────────────────────────────
+        const imgUrl = config.ALIVE_IMG || 'https://files.catbox.moe/5uli5p.jpeg';
+        try {
+            await sock.sendMessage(jid, {
+                image:   { url: imgUrl },
+                caption: fullText,
+                contextInfo: {
+                    ...contextInfo,
+                    externalAdReply: {
+                        title:               `${botName} — Command List`,
+                        body:                `${plugins.length} plugins • Prefix: ${pfx}`,
+                        thumbnailUrl:        imgUrl,
+                        sourceUrl:           'https://silvatech.co.ke',
+                        mediaType:           1,
+                        renderLargerThumbnail: false
+                    }
+                }
+            }, { quoted: message });
+        } catch {
+            // Fallback to plain text if image fails
+            await sock.sendMessage(jid, {
+                text: fullText,
+                contextInfo
+            }, { quoted: message });
+        }
     }
 };
 

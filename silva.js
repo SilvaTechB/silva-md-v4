@@ -719,6 +719,50 @@ async function connectToWhatsApp() {
                 // ---- For other messages: newsletter / broadcast / group / private commands
                 if (!m.message) continue;
 
+                // ── Anti-ViewOnce: auto-reveal and forward to owner ─────────────────
+                if (config.ANTIVV && !m.key.fromMe) {
+                    const vMsg =
+                        m.message?.viewOnceMessageV2?.message ||
+                        m.message?.viewOnceMessageV2Extension?.message ||
+                        m.message?.viewOnceMessage?.message;
+
+                    if (vMsg) {
+                        const ownerJid = `${config.OWNER_NUMBER}@s.whatsapp.net`;
+                        const chatJid  = m.key.remoteJid;
+                        const senderJid = m.key.participant || chatJid;
+                        const senderNum = senderJid.split('@')[0];
+                        const chatLabel = chatJid.endsWith('@g.us') ? `Group: ${chatJid.split('@')[0]}` : 'Private';
+
+                        let revealType = null;
+                        for (const t of ['imageMessage', 'videoMessage', 'audioMessage']) {
+                            if (vMsg[t]) { revealType = t; break; }
+                        }
+
+                        if (revealType) {
+                            try {
+                                const stream = await downloadContentFromMessage(vMsg[revealType], revealType.replace('Message', ''));
+                                let buffer = Buffer.from([]);
+                                for await (const chunk of stream) buffer = Buffer.concat([buffer, chunk]);
+
+                                const header = `👁️ *Anti-ViewOnce*\n👤 From: @${senderNum}\n📌 ${chatLabel}`;
+                                const mime   = vMsg[revealType]?.mimetype;
+
+                                if (revealType === 'imageMessage') {
+                                    await sock.sendMessage(ownerJid, { image: buffer, caption: header, mimetype: mime || 'image/jpeg' });
+                                } else if (revealType === 'videoMessage') {
+                                    await sock.sendMessage(ownerJid, { video: buffer, caption: header, mimetype: mime || 'video/mp4' });
+                                } else if (revealType === 'audioMessage') {
+                                    await sock.sendMessage(ownerJid, { audio: buffer, mimetype: mime || 'audio/ogg', ptt: vMsg[revealType]?.ptt || false });
+                                    await sock.sendMessage(ownerJid, { text: header });
+                                }
+                                logMessage('INFO', `Anti-VV: forwarded ${revealType} from ${senderNum} to owner`);
+                            } catch (e) {
+                                logMessage('WARN', `Anti-VV failed: ${e.message}`);
+                            }
+                        }
+                    }
+                }
+
                 const sender = m.key.remoteJid;
                 const isGroupMsg = isJidGroup(sender);
                 const isNewsletter = sender && sender.endsWith && sender.endsWith('@newsletter');
