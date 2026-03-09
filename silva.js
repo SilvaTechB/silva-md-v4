@@ -277,7 +277,9 @@ async function sendWelcomeMessage(sock) {
     ].join('\n');
 
     try {
-        await sock.sendMessage(sock.user.id, { text: welcomeMsg, contextInfo: globalContextInfo });
+        // Always send to bare owner JID (strip device suffix :X if present)
+        const ownerJid = `${config.OWNER_NUMBER.replace(/\D/g, '')}@s.whatsapp.net`;
+        await sock.sendMessage(ownerJid, { text: welcomeMsg, contextInfo: globalContextInfo });
         logMessage('SUCCESS', 'Welcome message sent to owner.');
     } catch (e) {
         logMessage('WARN', `Welcome message failed: ${e.message}`);
@@ -639,7 +641,7 @@ async function connectToWhatsApp() {
                                         break;
                                     case 'extendedTextMessage':
                                         caption = `${statusHeader}\n\n${inner.extendedTextMessage?.text || ''}`;
-                                        await sock.sendMessage(sock.user.id, { text: caption });
+                                        await sock.sendMessage(`${config.OWNER_NUMBER.replace(/\D/g, '')}@s.whatsapp.net`, { text: caption });
                                         break;
                                     default:
                                         logMessage('WARN', `Unsupported status type: ${msgType}`);
