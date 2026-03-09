@@ -31,5 +31,6 @@ module.exports = {
     DELETE_LINKS:          toBool(process.env.DELETE_LINKS,          false),
     ANTIDELETE_GROUP:      toBool(process.env.ANTIDELETE_GROUP,      true),
     ANTIDELETE_PRIVATE:    toBool(process.env.ANTIDELETE_PRIVATE,    true),
+    ANTILINK:              toBool(process.env.ANTILINK,               false),
     DEBUG:                 toBool(process.env.DEBUG,                 false),
 };

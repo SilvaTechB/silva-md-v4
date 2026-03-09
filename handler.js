@@ -148,6 +148,28 @@ async function handleMessages(sock, message) {
             }
         }
 
+        // ── Anti-link (group only, bot must be admin) ────────────────────────
+        if (isGroup && !message.key.fromMe) {
+            const antilinkOn = config.ANTILINK || global.antilinkGroups?.has(jid);
+            if (antilinkOn) {
+                const URL_REGEX = /(?:https?:\/\/|www\.)\S+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+(?:com|net|org|io|gg|me|ly|co|app|xyz|info|tv|link|shop|live|club|online|site|store|pro|in|ng|ke|tz|ug|za|uk)\b(?:\/\S*)?/gi;
+                if (URL_REGEX.test(text)) {
+                    try {
+                        await sock.sendMessage(jid, {
+                            delete: message.key
+                        });
+                        await safeSend(sock, jid, {
+                            text: `⚠️ @${from.split('@')[0]} links are not allowed in this group.`,
+                            mentions: [from]
+                        });
+                    } catch (e) {
+                        console.error('[Antilink] delete failed:', e.message);
+                    }
+                    return;
+                }
+            }
+        }
+
         if (!text.startsWith(prefix)) return;
 
         const parts   = text.slice(prefix.length).trim().split(/\s+/);

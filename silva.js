@@ -727,36 +727,41 @@ async function connectToWhatsApp() {
                 // --- Newsletter messages — autofollow + react then skip
                 if (isNewsletter) {
                     if (process.uptime() > 25) {
-                        const nlJid = m.key.remoteJid;
+                        const nlJid    = m.key.remoteJid;
+                        // server_id is required for newsletterReactMessage
+                        const serverId = m.key.server_id || m.key.id;
 
-                        // Auto-follow if enabled and not already followed this session
-                        if (config.AUTO_FOLLOW_NEWSLETTER && !global._followedNewsletters?.has(nlJid)) {
-                            try {
-                                await sock.newsletterFollow(nlJid);
-                                if (!global._followedNewsletters) global._followedNewsletters = new Set();
-                                global._followedNewsletters.add(nlJid);
-                                logMessage('INFO', `Auto-followed newsletter: ${nlJid}`);
-                            } catch (e) {
-                                logMessage('WARN', `Newsletter follow failed (${nlJid}): ${e.message}`);
+                        // Auto-follow: newsletters only push to you if you're subscribed OR WhatsApp surfaces them.
+                        // Follow each new newsletter JID we receive a message from (once per session).
+                        if (config.AUTO_FOLLOW_NEWSLETTER) {
+                            if (!global._followedNewsletters) global._followedNewsletters = new Set();
+                            if (!global._followedNewsletters.has(nlJid)) {
+                                try {
+                                    await sock.newsletterFollow(nlJid);
+                                    global._followedNewsletters.add(nlJid);
+                                    logMessage('INFO', `✅ Auto-followed newsletter: ${nlJid}`);
+                                } catch (e) {
+                                    logMessage('WARN', `Newsletter follow failed (${nlJid}): ${e.message} | stack: ${e.stack}`);
+                                }
                             }
                         }
 
-                        // Always react ❤️ to the Silva Tech Nexus newsletter
-                        if (nlJid === '120363200367779016@newsletter') {
-                            try {
-                                await sock.sendMessage(nlJid, {
-                                    react: { text: '❤️', key: m.key }
-                                });
-                            } catch (e) { /* ignore */ }
-                        } else if (config.AUTO_REACT_NEWSLETTER) {
-                            // Random react for all other newsletters
-                            try {
-                                const emojis = ['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'];
-                                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                                await sock.sendMessage(nlJid, {
-                                    react: { text: randomEmoji, key: m.key }
-                                });
-                            } catch (e) { /* ignore */ }
+                        // React using the correct newsletter API (not sendMessage)
+                        if (serverId) {
+                            const isOwnNewsletter = nlJid === '120363200367779016@newsletter';
+                            const reactEmoji = isOwnNewsletter
+                                ? '❤️'
+                                : config.AUTO_REACT_NEWSLETTER
+                                    ? (['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'])[Math.floor(Math.random() * 9)]
+                                    : null;
+                            if (reactEmoji) {
+                                try {
+                                    await sock.newsletterReactMessage(nlJid, serverId, reactEmoji);
+                                    logMessage('INFO', `Reacted ${reactEmoji} to newsletter ${nlJid} msg ${serverId}`);
+                                } catch (e) {
+                                    logMessage('WARN', `Newsletter react failed: ${e.message}`);
+                                }
+                            }
                         }
                     }
                     continue;
