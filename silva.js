@@ -14,9 +14,34 @@ const {
     isJidBroadcast,
     isJidStatusBroadcast,
     areJidsSameUser,
-    makeInMemoryStore,
     downloadContentFromMessage
 } = baileys;
+
+// Minimal in-memory message store (makeInMemoryStore was removed in gifted-baileys)
+function makeInMemoryStore() {
+    const messages = new Map(); // jid -> Map(id -> message)
+    const MAX_PER_JID = 200;
+    return {
+        bind(ev) {
+            ev.on('messages.upsert', ({ messages: msgs }) => {
+                for (const m of msgs) {
+                    if (!m.key?.id || !m.key?.remoteJid) continue;
+                    const jid = m.key.remoteJid;
+                    if (!messages.has(jid)) messages.set(jid, new Map());
+                    const chat = messages.get(jid);
+                    chat.set(m.key.id, m);
+                    if (chat.size > MAX_PER_JID) {
+                        const oldest = chat.keys().next().value;
+                        chat.delete(oldest);
+                    }
+                }
+            });
+        },
+        loadMessage(jid, id) {
+            return messages.get(jid)?.get(id) || null;
+        }
+    };
+}
 
 const fs = require('fs');
 const path = require('path');
