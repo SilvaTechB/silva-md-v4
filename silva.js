@@ -12,6 +12,7 @@ global.File = BufferFile;
         process.stderr.write('\n\x1b[31m⛔  Cheap editing of Silva MD Bot detected. Build failed.\x1b[0m\n\n');
         process.exit(1);
     }
+    process.stdout.write('\x1b[32m✅ Passed the Silva security check.\x1b[0m\n');
 })();
 
 // ✅ Silva Tech Inc Property 2025
