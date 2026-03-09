@@ -227,6 +227,8 @@ async function handleMessages(sock, message) {
         };
 
         // ── Dispatch ──────────────────────────────────────────────────────────
+        const RECORDING_CMDS = new Set(['play', 'song', 'sticker', 's', 'tiktok', 'tt', 'ttdl', 'tiktokdl', 'youtube', 'yt', 'instagram', 'igdl', 'ig', 'insta', 'facebook', 'fb', 'fbdl']);
+
         for (const plugin of plugins) {
             if (!plugin.commands.includes(command)) continue;
 
@@ -251,6 +253,12 @@ async function handleMessages(sock, message) {
                 continue;
             }
 
+            // ── Auto-presence: show typing or recording before responding ──────
+            try {
+                const presenceType = RECORDING_CMDS.has(command) ? 'recording' : 'composing';
+                await sock.sendPresenceUpdate(presenceType, jid);
+            } catch { /* non-fatal */ }
+
             try {
                 await plugin.run(sock, message, args, ctx);
             } catch (err) {
@@ -260,6 +268,9 @@ async function handleMessages(sock, message) {
                     { quoted: message }
                 );
             }
+
+            // ── Auto-presence: back to paused after responding ──────────────
+            try { await sock.sendPresenceUpdate('paused', jid); } catch { /* non-fatal */ }
         }
     } catch (err) {
         console.error('[Handler] Fatal:', err.stack || err.message);
