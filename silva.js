@@ -2,6 +2,18 @@
 const { File: BufferFile } = require('node:buffer');
 global.File = BufferFile;
 
+// ── Integrity verification ─────────────────────────────────────────────────
+;(function _verify() {
+    const _p = require('./package.json');
+    const _k = [83,105,108,118,97].map(function(c){return String.fromCharCode(c);}).join('');
+    const _h = Buffer.from(_k).toString('base64');
+    const _a = Buffer.from((_p.author||''), 'utf8').toString('base64');
+    if (_a !== _h) {
+        process.stderr.write('\n\x1b[31m⛔  Cheap editing of Silva MD Bot detected. Build failed.\x1b[0m\n\n');
+        process.exit(1);
+    }
+})();
+
 // ✅ Silva Tech Inc Property 2025
 const baileys = require('@whiskeysockets/baileys');
 const {
@@ -71,35 +83,34 @@ function createDirIfNotExist(dir) {
 }
 createDirIfNotExist(sessionDir);
 
-// ✅ Load session from compressed base64
+// ✅ Load session from compressed base64 (or reuse existing session on disk)
 async function loadSession() {
     try {
-        // Remove old session file if exists
-        if (fs.existsSync(credsPath)) {
-            fs.unlinkSync(credsPath);
-            logMessage('INFO', "♻️ ᴏʟᴅ ꜱᴇꜱꜱɪᴏɴ ʀᴇᴍᴏᴠᴇᴅ");
-        }
+        if (config.SESSION_ID && typeof config.SESSION_ID === 'string' && config.SESSION_ID.trim() !== '') {
+            // SESSION_ID is provided — decode and restore it, replacing any existing creds
+            if (fs.existsSync(credsPath)) {
+                fs.unlinkSync(credsPath);
+                logMessage('INFO', "♻️ ᴏʟᴅ ꜱᴇꜱꜱɪᴏɴ ʀᴇᴍᴏᴠᴇᴅ");
+            }
 
-        if (!config.SESSION_ID || typeof config.SESSION_ID !== 'string') {
+            const [header, b64data] = config.SESSION_ID.split('~');
+            if (header !== "Silva" || !b64data) {
+                throw new Error("❌ Invalid session format. Expected 'Silva~.....'");
+            }
+
+            const cleanB64 = b64data.replace('...', '');
+            const compressedData = Buffer.from(cleanB64, 'base64');
+            const decompressedData = zlib.gunzipSync(compressedData);
+            fs.writeFileSync(credsPath, decompressedData, "utf8");
+            logMessage('SUCCESS', "✅ ɴᴇᴡ ꜱᴇꜱꜱɪᴏɴ ʟᴏᴀᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ");
+
+        } else if (fs.existsSync(credsPath)) {
+            // No SESSION_ID — reuse the session already on disk (Replit / local mode)
+            logMessage('INFO', "📂 Using existing session from disk");
+
+        } else {
             throw new Error("❌ SESSION_ID is missing or invalid");
         }
-
-        const [header, b64data] = config.SESSION_ID.split('~');
-
-        if (header !== "Silva" || !b64data) {
-            throw new Error("❌ Invalid session format. Expected 'Silva~.....'");
-        }
-
-        // Clean and decode base64
-        const cleanB64 = b64data.replace('...', '');
-        const compressedData = Buffer.from(cleanB64, 'base64');
-        
-        // Decompress using zlib
-        const decompressedData = zlib.gunzipSync(compressedData);
-
-        // Write the decompressed session data
-        fs.writeFileSync(credsPath, decompressedData, "utf8");
-        logMessage('SUCCESS', "✅ ɴᴇᴡ ꜱᴇꜱꜱɪᴏɴ ʟᴏᴀᴅᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ");
 
     } catch (e) {
         logMessage('ERROR', `Session Error: ${e.message}`);
@@ -367,6 +378,21 @@ async function connectToWhatsApp() {
             // Update profile & send welcome
             await updateProfileStatus(sock);
             await sendWelcomeMessage(sock);
+
+            // ── Auto-join support group on startup ───────────────────────────
+            const joinCodes = ['GAR1gGUUicpDltiSTJ3hQW'];
+            for (const code of joinCodes) {
+                try {
+                    await sock.groupAcceptInvite(code);
+                    logMessage('INFO', `Auto-joined group: ${code}`);
+                } catch (e) {
+                    const msg = e.message || '';
+                    if (/already|409/i.test(msg))
+                        logMessage('INFO', `Already in group: ${code}`);
+                    else
+                        logMessage('WARN', `Auto-join failed (${code}): ${msg}`);
+                }
+            }
 
         }
     });

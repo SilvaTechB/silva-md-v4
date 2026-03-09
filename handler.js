@@ -101,6 +101,49 @@ function setupConnectionHandlers(sock) {
     });
 }
 
+// ─── Command predictor ───────────────────────────────────────────────────────
+function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({ length: m + 1 }, (_, i) =>
+        Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+    );
+    for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+            dp[i][j] = a[i - 1] === b[j - 1]
+                ? dp[i - 1][j - 1]
+                : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    return dp[m][n];
+}
+
+function predictCommand(typed, allPlugins) {
+    const flat = [];
+    for (const plugin of allPlugins)
+        for (const cmd of (plugin.commands || []))
+            flat.push({ cmd, plugin });
+
+    // 1. Unambiguous prefix match (typed ≥ 3 chars, matches exactly one command)
+    if (typed.length >= 3) {
+        const hits = flat.filter(({ cmd }) => cmd.startsWith(typed));
+        if (hits.length === 1)
+            return { plugin: hits[0].plugin, match: hits[0].cmd, confidence: 'prefix' };
+        if (hits.length > 1)
+            return { matches: [...new Set(hits.map(h => h.cmd))], confidence: 'ambiguous' };
+    }
+
+    // 2. Fuzzy match via Levenshtein distance
+    //    threshold = 1 for short commands (≤4 chars), 2 for longer ones
+    let best = null, bestDist = Infinity;
+    for (const { cmd, plugin } of flat) {
+        const dist = levenshtein(typed, cmd);
+        const threshold = typed.length <= 4 ? 1 : 2;
+        if (dist <= threshold && dist < bestDist) {
+            best = { plugin, match: cmd, confidence: dist === 1 ? 'typo' : 'fuzzy' };
+            bestDist = dist;
+        }
+    }
+    return best;
+}
+
 // ─── Main message handler ────────────────────────────────────────────────────
 function formatDuration(ms) {
     const s = Math.floor(ms / 1000);
@@ -125,6 +168,11 @@ async function handleMessages(sock, message) {
         // sender = chat JID for responses (matches legacy plugin expectation of m.key.remoteJid)
         const sender = jid;
         if (!jid || !from) return;
+
+        // ── Auto-presence: fire instantly on every incoming message ──────────
+        if (!message.key.fromMe && (config.AUTO_TYPING || config.AUTO_RECORDING)) {
+            try { await sock.sendPresenceUpdate('composing', jid); } catch { /* non-fatal */ }
+        }
 
         const isGroup = isJidGroup(jid);
         const prefix  = config.PREFIX || '.';
@@ -170,13 +218,39 @@ async function handleMessages(sock, message) {
             }
         }
 
-        if (!text.startsWith(prefix)) return;
+        if (!text.startsWith(prefix)) {
+            if (!message.key.fromMe && (config.AUTO_TYPING || config.AUTO_RECORDING)) {
+                try { await sock.sendPresenceUpdate('paused', jid); } catch { /* non-fatal */ }
+            }
+            return;
+        }
 
         const parts   = text.slice(prefix.length).trim().split(/\s+/);
         const command = parts.shift().toLowerCase();
         const args    = parts;
 
-        console.log(`[HANDLER] cmd=${command} jid=${jid} from=${from}`);
+        // ── Command predictor: resolve typos / short-forms ───────────────────
+        let resolvedCommand = command;
+        let predictionNote  = null;
+        const exactExists   = plugins.some(p => p.commands?.includes(command));
+        if (!exactExists) {
+            const prediction = predictCommand(command, plugins);
+            if (prediction?.confidence === 'ambiguous') {
+                await safeSend(sock, jid, {
+                    text: `❓ *Did you mean one of these?*\n${prediction.matches.map(c => `• \`${prefix}${c}\``).join('\n')}`
+                }, { quoted: message });
+                if (config.AUTO_TYPING || config.AUTO_RECORDING)
+                    try { await sock.sendPresenceUpdate('paused', jid); } catch { /* ok */ }
+                return;
+            } else if (prediction) {
+                resolvedCommand = prediction.match;
+                if (prediction.confidence !== 'exact') {
+                    predictionNote = `_💡 Running_ \`${prefix}${resolvedCommand}\``;
+                }
+            }
+        }
+
+        console.log(`[HANDLER] cmd=${command}${resolvedCommand !== command ? `→${resolvedCommand}` : ''} jid=${jid} from=${from}`);
 
         // ── Resolve owner ─────────────────────────────────────────────────────
         // fromMe = owner is using their own device as the bot
@@ -230,7 +304,7 @@ async function handleMessages(sock, message) {
         const RECORDING_CMDS = new Set(['play', 'song', 'sticker', 's', 'tiktok', 'tt', 'ttdl', 'tiktokdl', 'youtube', 'yt', 'instagram', 'igdl', 'ig', 'insta', 'facebook', 'fb', 'fbdl']);
 
         for (const plugin of plugins) {
-            if (!plugin.commands.includes(command)) continue;
+            if (!plugin.commands.includes(resolvedCommand)) continue;
 
             // Scope guards
             const allowGroup   = plugin.group   !== false;
@@ -253,17 +327,16 @@ async function handleMessages(sock, message) {
                 continue;
             }
 
-            // ── Auto-presence: show typing or recording before responding ──────
-            let presenceSent = false;
-            try {
-                const wantRecording = config.AUTO_RECORDING && RECORDING_CMDS.has(command);
-                const wantTyping    = config.AUTO_TYPING    && !RECORDING_CMDS.has(command);
-                if (wantRecording || wantTyping) {
-                    const presenceType = wantRecording ? 'recording' : 'composing';
-                    await sock.sendPresenceUpdate(presenceType, jid);
-                    presenceSent = true;
-                }
-            } catch { /* non-fatal */ }
+            // ── Prediction note: let user know what command was resolved ────
+            if (predictionNote) {
+                await safeSend(sock, jid, { text: predictionNote }, { quoted: message });
+                predictionNote = null;
+            }
+
+            // ── Override presence to recording for media commands ───────────
+            if (config.AUTO_RECORDING && RECORDING_CMDS.has(resolvedCommand)) {
+                try { await sock.sendPresenceUpdate('recording', jid); } catch { /* non-fatal */ }
+            }
 
             try {
                 await plugin.run(sock, message, args, ctx);
@@ -275,8 +348,8 @@ async function handleMessages(sock, message) {
                 );
             }
 
-            // ── Auto-presence: back to paused after responding ──────────────
-            if (presenceSent) {
+            // ── Auto-presence: back to paused after responding ───────────────
+            if (config.AUTO_TYPING || config.AUTO_RECORDING) {
                 try { await sock.sendPresenceUpdate('paused', jid); } catch { /* non-fatal */ }
             }
         }

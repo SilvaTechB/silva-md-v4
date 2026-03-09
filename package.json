@@ -9,12 +9,14 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "author": "Silva",
   "license": "Apache-2.0",
   "dependencies": {
     "@adiwajshing/keyed-db": "^0.2.4",
     "@bochilteam/scraper": "^4.2.4",
     "@google/generative-ai": "^0.1.3",
     "@hapi/boom": "^10.0.0",
+    "@replit/connectors-sdk": "^0.2.0",
     "@shineiichijo/marika": "^3.0.1",
     "@StarlightsTeam/Scraper": "github:StarlightsTeam/StarlightsTeam-Scraper",
     "@SumiFX/Scraper": "github:SumiFX/SumiFX-Scraper",
