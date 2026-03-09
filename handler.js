@@ -50,16 +50,8 @@ async function safeSend(sock, jid, content, opts = {}) {
     }
 }
 
-// ─── Global forward context (newsletter watermark) ──────────────────────────
-const GLOBAL_CONTEXT_INFO = {
-    forwardingScore: 999,
-    isForwarded: true,
-    forwardedNewsletterMessageInfo: {
-        newsletterJid: '120363200367779016@newsletter',
-        newsletterName: '◢◤ Silva Tech Nexus ◢◤',
-        serverMessageId: 144
-    }
-};
+// Context info kept empty — newsletter watermarks cause "waiting for this message" in groups
+const GLOBAL_CONTEXT_INFO = {};
 
 // ─── Plugin loader ───────────────────────────────────────────────────────────
 const plugins = [];

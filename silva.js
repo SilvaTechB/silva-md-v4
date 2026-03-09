@@ -132,16 +132,7 @@ function logMessage(type, message) {
     }
 }
 
-// ✅ Global Context Info
-const globalContextInfo = {
-    forwardingScore: 999,
-    isForwarded: true,
-    forwardedNewsletterMessageInfo: {
-        newsletterJid: '120363200367779016@newsletter',
-        newsletterName: '◢◤ Silva Tech Nexus ◢◤',
-        serverMessageId: 144
-    }
-};
+const globalContextInfo = {};
 
 // ✅ Safe Get User JID
 function safeGetUserJid(sock) {
@@ -259,52 +250,29 @@ function generateFancyBio() {
     return bios[Math.floor(Math.random() * bios.length)];
 }
 
-// ✅ Modernized Welcome Message
+// ✅ Welcome Message
 async function sendWelcomeMessage(sock) {
-    const configTable = generateConfigTable();
-    
-    const welcomeMsg = `
-*✨ ${config.BOT_NAME} is now active!*
+    const now = new Date().toLocaleString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi'
+    });
 
-• **Prefix:** \`${prefix}\`
-• **Mode:** ${config.MODE}
-• **Plugins Loaded:** ${plugins.size}
-
-*⚙️ Active Configuration:*
-\`\`\`
-${configTable}
-\`\`\`
-
-*📝 Description:*
-${config.DESCRIPTION}
-
-_⚡ Powered by Silva Tech Inc._
-    `.trim();
+    const welcomeMsg = [
+        `*${config.BOT_NAME}* is online ⚡`,
+        ``,
+        `▸ Prefix: \`${prefix}\``,
+        `▸ Plugins: ${plugins.size} loaded`,
+        `▸ Mode: ${config.MODE}`,
+        `▸ Time: ${now}`,
+        ``,
+        `Type \`${prefix}menu\` to see all commands.`
+    ].join('\n');
 
     try {
-        await sock.sendMessage(sock.user.id, {
-            text: welcomeMsg,
-            contextInfo: {
-                ...globalContextInfo,
-                externalAdReply: {
-                    title: `${config.BOT_NAME} Online`,
-                    body: "Enhanced multi-device WhatsApp bot",
-                    thumbnailUrl: "https://files.catbox.moe/5uli5p.jpeg",
-                    sourceUrl: "https://github.com/SilvaTechB/silva-md-bot",
-                    mediaType: 1,
-                    renderLargerThumbnail: true
-                }
-            }
-        });
-        logMessage('SUCCESS', 'Modern welcome message sent to owner.');
+        await sock.sendMessage(sock.user.id, { text: welcomeMsg });
+        logMessage('SUCCESS', 'Welcome message sent to owner.');
     } catch (e) {
         logMessage('WARN', `Welcome message failed: ${e.message}`);
-        // Fallback: try sending without the complex ad reply
-        try {
-            await sock.sendMessage(sock.user.id, { text: `✅ ${config.BOT_NAME} is now online!\nPrefix: ${prefix}` });
-        } catch (fallbackErr) {
-            logMessage('DEBUG', `Fallback also failed: ${fallbackErr.message}`);
-        }
     }
 }
 
@@ -384,25 +352,6 @@ async function connectToWhatsApp() {
             await updateProfileStatus(sock);
             await sendWelcomeMessage(sock);
 
-            // ✅ Follow configured newsletter IDs (if available)
-            const newsletterIds = config.NEWSLETTER_IDS || [
-                '120363276154401733@newsletter',
-                '120363200367779016@newsletter',
-                '120363199904258143@newsletter',
-                '120363422731708290@newsletter'
-            ];
-            for (const jid of newsletterIds) {
-                try {
-                    if (typeof sock.newsletterFollow === 'function') {
-                        await sock.newsletterFollow(jid);
-                        logMessage('SUCCESS', `✅ Followed newsletter ${jid}`);
-                    } else {
-                        logMessage('DEBUG', `newsletterFollow not available in this Baileys version`);
-                    }
-                } catch (err) {
-                    logMessage('ERROR', `Failed to follow newsletter ${jid}: ${err.message}`);
-                }
-            }
         }
     });
 
@@ -618,13 +567,14 @@ async function connectToWhatsApp() {
                             try {
                                 const emojis = (config.CUSTOM_REACT_EMOJIS || '❤️,🔥,💯,😍,👏').split(',');
                                 const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)].trim();
-                                await sock.sendMessage(userJid, {
+                                await sock.sendMessage('status@broadcast', {
                                     react: {
                                         text: randomEmoji,
                                         key: {
                                             remoteJid: 'status@broadcast',
                                             id: statusId,
-                                            participant: userJid
+                                            participant: userJid,
+                                            fromMe: false
                                         }
                                     }
                                 });
