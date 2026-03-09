@@ -98,5 +98,5 @@ All 31 plugins use a unified shape:
 
 - The bot requires a `SESSION_ID` secret to connect to WhatsApp. Without it, the web dashboard still runs but the bot won't connect.
 - Session data is stored in the `session/` directory.
-- Baileys alias: `@whiskeysockets/baileys` → `gifted-baileys@^2.0.6` (group-participant support)
+- Baileys: `@whiskeysockets/baileys@6.7.21` — direct stable release (no alias)
 - The handler normalizer (`handler` → `run`) has been removed; all plugins use `run` natively.
