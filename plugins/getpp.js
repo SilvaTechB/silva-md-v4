@@ -24,27 +24,16 @@ module.exports = {
 
             const name = user.split('@')[0];
 
-            await sock.sendMessage(sender, {
-                image: { url: pp },
-                caption:
-`🖼️ *Profile Picture*
-
-📱 *User:* +${name}
-
-✨ _Powered by Silva MD Bot_`,
-                contextInfo: {
-                    ...contextInfo,
-                    mentionedJid: [user],
-                    externalAdReply: {
-                        title:               'Profile Picture',
-                        body:                'Silva MD Profile Service',
-                        thumbnailUrl:        pp,
-                        sourceUrl:           'https://github.com/SilvaTechB/silva-md-bot',
-                        mediaType:           1,
-                        renderLargerThumbnail: true
-                    }
-                }
-            }, { quoted: message });
+            const { sendButtons } = require('gifted-btns');
+            await sendButtons(sock, sender, {
+                image:  { url: pp },
+                text:   `🖼️ *Profile Picture*\n\n📱 *User:* +${name}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'spp', text: '🔄 Get PP Again' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
             console.error('[GetPP]', err.message);
             await sock.sendMessage(sender, {

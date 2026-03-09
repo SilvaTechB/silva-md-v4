@@ -1,6 +1,7 @@
 'use strict';
 
 const axios = require('axios');
+const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['qrcode', 'qr'],
@@ -29,14 +30,15 @@ module.exports = {
             const res = await axios.get(qrUrl, { responseType: 'arraybuffer', timeout: 15000 });
             const buffer = Buffer.from(res.data);
 
-            await sock.sendMessage(jid, {
-                image:   buffer,
-                caption:
-                    `✅ *QR Code Generated*\n\n` +
-                    `📝 *Content:* ${content.length > 80 ? content.slice(0, 77) + '...' : content}\n\n` +
-                    `> _Scan with any QR reader_`,
-                contextInfo
-            }, { quoted: message });
+            await sendButtons(sock, jid, {
+                image:  buffer,
+                text:   `✅ *QR Code Generated*\n\n📝 *Content:* ${content.length > 80 ? content.slice(0, 77) + '...' : content}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'qr', text: '📱 Generate Another QR' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
 
         } catch (err) {
             await sock.sendMessage(jid, {

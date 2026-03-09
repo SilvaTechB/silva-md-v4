@@ -1,5 +1,6 @@
 'use strict';
 
+const { sendButtons } = require('gifted-btns');
 let afkActive = false;
 let afkReason  = 'No reason given';
 let afkSince   = 0;
@@ -34,24 +35,32 @@ module.exports = {
             afkActive = true;
             afkReason  = args.join(' ') || 'No reason given';
             afkSince   = Date.now();
-            await safeSend({
-                text: `🌙 *AFK Mode Activated*\n\n📝 Reason: ${afkReason}\n\n_Anyone who messages will receive an auto-reply until you use .back_`,
-                contextInfo
-            }, { quoted: message });
+            await sendButtons(sock, message.key.remoteJid, {
+                text:   `🌙 *AFK Mode Activated*\n\n📝 Reason: ${afkReason}\n\n_Anyone who messages you will receive an auto-reply._`,
+                footer: '⚡ Type .back to return',
+                buttons: [
+                    { id: 'back', text: '🌸 Back (Deactivate AFK)' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
             return;
         }
 
         if (cmdText === 'back') {
             if (!afkActive) {
-                await safeSend({ text: '✅ AFK mode is not currently active.', contextInfo }, { quoted: message });
+                await sock.sendMessage(message.key.remoteJid, { text: '✅ AFK mode is not currently active.', contextInfo }, { quoted: message });
                 return;
             }
             const duration = formatDuration(Date.now() - afkSince);
             afkActive = false;
-            await safeSend({
-                text: `🌸 *Welcome back!*\n\n⏱ You were away for *${duration}*.`,
-                contextInfo
-            }, { quoted: message });
+            await sendButtons(sock, message.key.remoteJid, {
+                text:   `🌸 *Welcome Back!*\n\n⏱ You were away for *${duration}*.`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'afk',  text: '🌙 Go AFK Again' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
         }
     }
 };

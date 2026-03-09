@@ -1,5 +1,6 @@
 'use strict';
 
+const { sendButtons } = require('gifted-btns');
 const GH_REGEX = /(?:https|git)(?::\/\/|@)github\.com[\/:]([^\/:]+)\/(.+)/i;
 
 module.exports = {
@@ -42,19 +43,21 @@ module.exports = {
                 document: { url },
                 fileName: filename,
                 mimetype: 'application/zip',
-                caption:  `✅ *${user}/${cleanRepo}*\n_Downloaded via Silva MD_`,
-                contextInfo: {
-                    ...contextInfo,
-                    externalAdReply: {
-                        title:               'GitHub Clone',
-                        body:                'Powered by Silva MD',
-                        thumbnailUrl:        'https://files.catbox.moe/5uli5p.jpeg',
-                        sourceUrl:           `https://github.com/${user}/${cleanRepo}`,
-                        mediaType:           1,
-                        renderLargerThumbnail: true
-                    }
-                }
+                caption:  `📦 *${user}/${cleanRepo}*\n_Downloaded via Silva MD_`,
+                contextInfo
             }, { quoted: message });
+            await sendButtons(sock, sender, {
+                text:   `✅ *GitHub Repo Downloaded*\n\n📁 \`${user}/${cleanRepo}\`\n🔗 github.com/${user}/${cleanRepo}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'gitclone', text: '📂 Clone Another Repo' },
+                    {
+                        name: 'cta_url',
+                        buttonParamsJson: JSON.stringify({ display_text: '🌐 View on GitHub', url: `https://github.com/${user}/${cleanRepo}` })
+                    },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
             console.error('[GitClone]', err.message);
             await sock.sendMessage(sender, {

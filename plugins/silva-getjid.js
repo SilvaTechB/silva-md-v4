@@ -1,5 +1,6 @@
 'use strict';
 
+const { sendButtons } = require('gifted-btns');
 const THUMB = 'https://files.catbox.moe/5uli5p.jpeg';
 
 module.exports = {
@@ -27,20 +28,16 @@ module.exports = {
 
 ✨ _Powered by Silva Tech Inc_`;
 
-            await sock.sendMessage(sender, {
-                image:   { url: THUMB },
-                caption,
-                contextInfo: {
-                    ...contextInfo,
-                    externalAdReply: {
-                        title:               'Silva MD JID Tool',
-                        body:                'Fetch and manage WhatsApp JIDs',
-                        thumbnailUrl:        THUMB,
-                        mediaType:           1,
-                        renderLargerThumbnail: false
-                    }
-                }
-            }, { quoted: message });
+            await sendButtons(sock, sender, {
+                image:  { url: THUMB },
+                text:   caption,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'getjid', text: '🔄 Get JID Again' },
+                    { id: 'ping',   text: '🏓 Ping Bot' },
+                    { id: 'menu',   text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
             console.error('[GetJID]', err.message);
             await sock.sendMessage(sender, {

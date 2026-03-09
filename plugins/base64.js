@@ -1,4 +1,5 @@
 'use strict';
+const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['base64', 'b64'],
@@ -12,43 +13,31 @@ module.exports = {
         const { contextInfo } = ctx;
         const jid  = message.key.remoteJid;
         const mode = (args[0] || '').toLowerCase();
-
         if (!['encode','decode','enc','dec'].includes(mode) || args.length < 2) {
             return sock.sendMessage(jid, {
-                text:
-                    `❌ *Usage:*\n` +
-                    `• \`.base64 encode Hello World\`\n` +
-                    `• \`.base64 decode SGVsbG8gV29ybGQ=\``,
+                text: `❌ *Usage:*\n• \`.base64 encode Hello World\`\n• \`.base64 decode SGVsbG8gV29ybGQ=\``,
                 contextInfo
             }, { quoted: message });
         }
-
         const input = args.slice(1).join(' ');
+        const isEnc = mode === 'encode' || mode === 'enc';
         try {
-            if (mode === 'encode' || mode === 'enc') {
-                const result = Buffer.from(input, 'utf8').toString('base64');
-                await sock.sendMessage(jid, {
-                    text:
-                        `🔐 *Base64 Encoder*\n\n` +
-                        `📝 *Input:*\n${input}\n\n` +
-                        `📦 *Encoded:*\n\`\`\`${result}\`\`\``,
-                    contextInfo
-                }, { quoted: message });
-            } else {
-                const result = Buffer.from(input, 'base64').toString('utf8');
-                await sock.sendMessage(jid, {
-                    text:
-                        `🔓 *Base64 Decoder*\n\n` +
-                        `📦 *Input:*\n\`${input}\`\n\n` +
-                        `📝 *Decoded:*\n${result}`,
-                    contextInfo
-                }, { quoted: message });
-            }
+            const result = isEnc
+                ? Buffer.from(input, 'utf8').toString('base64')
+                : Buffer.from(input, 'base64').toString('utf8');
+            await sendButtons(sock, jid, {
+                text:   isEnc
+                    ? `🔐 *Base64 Encoder*\n\n📝 *Input:*\n${input}\n\n📦 *Encoded:*\n\`\`\`${result}\`\`\``
+                    : `🔓 *Base64 Decoder*\n\n📦 *Input:*\n\`${input}\`\n\n📝 *Decoded:*\n${result}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'base64 encode', text: '🔒 Encode' },
+                    { id: 'base64 decode', text: '🔓 Decode' },
+                    { id: 'menu',          text: '📋 Main Menu' },
+                ]
+            });
         } catch {
-            await sock.sendMessage(jid, {
-                text: `❌ Invalid Base64 string. Make sure you're decoding a valid Base64 value.`,
-                contextInfo
-            }, { quoted: message });
+            await sock.sendMessage(jid, { text: `❌ Invalid Base64 string.`, contextInfo }, { quoted: message });
         }
     }
 };

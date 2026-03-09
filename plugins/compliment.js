@@ -1,4 +1,5 @@
 'use strict';
+const { sendButtons } = require('gifted-btns');
 
 const COMPLIMENTS = [
     "You make the world a better place just by being in it. 🌟",
@@ -25,26 +26,26 @@ const COMPLIMENTS = [
 
 module.exports = {
     commands:    ['compliment', 'comp', 'praise'],
-    description: 'Send a random compliment to brighten someone\'s day',
-    usage:       '.compliment [@mention optional]',
+    description: 'Send a random compliment',
     permission:  'public',
     group:       true,
     private:     true,
 
     run: async (sock, message, args, ctx) => {
-        const { contextInfo } = ctx;
         const jid  = message.key.remoteJid;
         const pick = COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)];
-
         const mentioned = message.message?.extendedTextMessage?.contextInfo?.mentionedJid || [];
         const target = mentioned.length
             ? `@${mentioned[0].split('@')[0]}, ${pick.charAt(0).toLowerCase() + pick.slice(1)}`
             : pick;
-
-        await sock.sendMessage(jid, {
-            text: `💐 *Compliment*\n\n${target}`,
-            mentions: mentioned,
-            contextInfo
-        }, { quoted: message });
+        await sendButtons(sock, jid, {
+            text:   `💐 *Compliment*\n\n${target}`,
+            footer: '⚡ Powered by Silva MD',
+            buttons: [
+                { id: 'compliment', text: '💐 Another Compliment' },
+                { id: 'quote',      text: '💬 Inspiring Quote' },
+                { id: 'menu',       text: '📋 Main Menu' },
+            ]
+        });
     }
 };

@@ -1,10 +1,11 @@
 'use strict';
 const axios = require('axios');
+const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['ip', 'iplookup', 'ipinfo'],
     description: 'Look up information about any IP address',
-    usage:       '.ip <address>  e.g. .ip 8.8.8.8',
+    usage:       '.ip <address>',
     permission:  'public',
     group:       true,
     private:     true,
@@ -13,10 +14,7 @@ module.exports = {
         const { contextInfo } = ctx;
         const jid = message.key.remoteJid;
         if (!args.length) {
-            return sock.sendMessage(jid, {
-                text: `❌ *Usage:* \`.ip <address>\`\n_Example:_ \`.ip 8.8.8.8\``,
-                contextInfo
-            }, { quoted: message });
+            return sock.sendMessage(jid, { text: `❌ *Usage:* \`.ip <address>\`\n_Example:_ \`.ip 8.8.8.8\``, contextInfo }, { quoted: message });
         }
         const ip = args[0].trim();
         try {
@@ -26,28 +24,25 @@ module.exports = {
             });
             const d = res.data;
             if (d.status !== 'success') throw new Error(d.message || 'Lookup failed');
-            await sock.sendMessage(jid, {
+            await sendButtons(sock, jid, {
                 text:
                     `🌐 *IP Lookup: ${d.query}*\n\n` +
                     `🏳️ *Country:* ${d.country}\n` +
                     `🏙️ *City:* ${d.city}, ${d.regionName}\n` +
-                    `📮 *ZIP:* ${d.zip || 'N/A'}\n` +
                     `🕐 *Timezone:* ${d.timezone}\n` +
                     `📍 *Coordinates:* ${d.lat}, ${d.lon}\n` +
                     `🏢 *ISP:* ${d.isp}\n` +
-                    `🏛️ *Org:* ${d.org || 'N/A'}\n` +
-                    `📡 *AS:* ${d.as || 'N/A'}\n` +
                     `📱 *Mobile:* ${d.mobile ? 'Yes' : 'No'}\n` +
-                    `🕵️ *Proxy/VPN:* ${d.proxy ? '⚠️ Yes' : 'No'}\n` +
-                    `🖥️ *Hosting:* ${d.hosting ? 'Yes' : 'No'}\n\n` +
-                    `> _Powered by ip-api.com_`,
-                contextInfo
-            }, { quoted: message });
+                    `🕵️ *Proxy/VPN:* ${d.proxy ? '⚠️ Yes' : 'No'}`,
+                footer: '⚡ Powered by ip-api.com',
+                buttons: [
+                    { id: 'ip 8.8.8.8',  text: '🔍 Google DNS (8.8.8.8)' },
+                    { id: 'ip',          text: '🌐 Look Up Another IP' },
+                    { id: 'menu',        text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
-            await sock.sendMessage(jid, {
-                text: `❌ IP lookup failed: ${err.message}`,
-                contextInfo
-            }, { quoted: message });
+            await sock.sendMessage(jid, { text: `❌ IP lookup failed: ${err.message}`, contextInfo }, { quoted: message });
         }
     }
 };

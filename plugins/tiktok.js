@@ -78,18 +78,22 @@ module.exports = {
             const stat = fs.statSync(tempPath);
             if (stat.size < 1024) throw new Error('Downloaded file is too small');
 
+            const videoCaption = `🎵 *TikTok*  •  👤 ${result.author?.nickname || result.author?.name || 'Unknown'}  •  ❤️ ${result.likes ?? 'N/A'}`;
             await sock.sendMessage(sender, {
                 video:   fs.readFileSync(tempPath),
-                caption:
-`🎵 *TikTok Video*
-
-👤 *Author:* ${result.author?.nickname || result.author?.name || 'Unknown'}
-❤️ *Likes:* ${result.likes ?? 'N/A'}
-🔗 ${url}
-
-_Downloaded via Silva MD_`,
+                caption: videoCaption,
                 contextInfo
             }, { quoted: message });
+            const { sendButtons: sb } = require('gifted-btns');
+            await sb(sock, sender, {
+                text:   `✅ *TikTok Downloaded*\n\n${videoCaption}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'tiktok', text: '🎵 Download Another' },
+                    { id: 'yt',     text: '▶️ YouTube Download' },
+                    { id: 'menu',   text: '📋 Main Menu' },
+                ]
+            });
         } finally {
             if (fs.existsSync(tempPath)) try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
         }

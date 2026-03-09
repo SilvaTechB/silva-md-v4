@@ -1,6 +1,7 @@
 'use strict';
 
 const axios = require('axios');
+const { sendButtons } = require('gifted-btns');
 
 const AI_APIS = [
     q => `https://lance-frank-asta.onrender.com/api/gpt?q=${encodeURIComponent(q)}`,
@@ -34,9 +35,14 @@ module.exports = {
 
         if (!response) response = '⚠️ Sorry, all AI servers are currently unavailable. Try again later.';
 
-        await sock.sendMessage(sender, {
-            text: `🤖 *AI Response:*\n\n${response}`,
-            contextInfo
-        }, { quoted: message });
+        await sendButtons(sock, sender, {
+            text:   `🤖 *AI Response:*\n\n${response}`,
+            footer: '⚡ Powered by Silva MD AI',
+            buttons: [
+                { id: 'ai',     text: '🤖 Ask Again' },
+                { id: 'imagine', text: '🎨 Generate Image' },
+                { id: 'menu',   text: '📋 Main Menu' },
+            ]
+        });
     }
 };

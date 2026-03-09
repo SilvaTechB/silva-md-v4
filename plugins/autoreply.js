@@ -2,6 +2,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { sendButtons } = require('gifted-btns');
 
 const AUTO_REPLY_PATH = path.join(__dirname, '../auto-reply-settings.json');
 
@@ -66,16 +67,19 @@ module.exports = {
 
         if (!action) {
             const total = Object.values(settings.responses).reduce((n, c) => n + c.patterns.length, 0);
-            return sock.sendMessage(sender, {
+            return sendButtons(sock, sender, {
                 text:
 `🤖 *Auto-Reply Status*
-• System: ${settings.enabled ? 'ENABLED' : 'DISABLED'}
+• System: ${settings.enabled ? '✅ ENABLED' : '❌ DISABLED'}
 • Ignored groups: ${settings.ignoredGroups.length}
-• Total patterns: ${total}
-
-Usage: .autoreply [on|off|ignore|add <pattern> <reply>|list]`,
-                contextInfo
-            }, { quoted: message });
+• Total patterns: ${total}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'autoreply on',  text: '🟢 Enable' },
+                    { id: 'autoreply off', text: '🔴 Disable' },
+                    { id: 'menu',          text: '📋 Main Menu' },
+                ]
+            });
         }
 
         switch (action) {

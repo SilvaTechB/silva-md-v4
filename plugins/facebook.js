@@ -39,9 +39,10 @@ module.exports = {
 
             const title = data?.result?.title || 'Facebook Video';
 
+            const { sendButtons: sb } = require('gifted-btns');
             await sock.sendMessage(sender, {
                 video:   { url: videoUrl },
-                caption: `🦋 *Facebook Video Downloaded*\n\n📌 *Title:* ${title}\n\n_Powered by Silva MD_`,
+                caption: `🦋 *Facebook*  •  📌 ${title}`,
                 contextInfo: {
                     ...contextInfo,
                     externalAdReply: {
@@ -54,6 +55,15 @@ module.exports = {
                     }
                 }
             }, { quoted: message });
+            await sb(sock, sender, {
+                text:   `✅ *Facebook Downloaded*\n\n📌 ${title}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'facebook', text: '📘 Download Another' },
+                    { id: 'instagram', text: '📸 Instagram Download' },
+                    { id: 'menu',     text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
             console.error('[Facebook]', err.message);
             await sock.sendMessage(sender, {

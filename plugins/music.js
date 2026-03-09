@@ -106,6 +106,16 @@ module.exports = {
                 : { audio: { url: audioUrl }, mimetype: 'audio/mpeg' };
 
             await sock.sendMessage(sender, { ...audioPayload, contextInfo }, { quoted: message });
+            const { sendButtons: sb } = require('gifted-btns');
+            await sb(sock, sender, {
+                text:   `🎵 *Music Downloaded*\n\n🎤 ${title}\n🎸 ${artist}${duration ? `\n⏱ ${duration}` : ''}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'play', text: '▶️ Play Another Song' },
+                    { id: 'shazam', text: '🎧 Identify a Song' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
 
             // ── Step 6: send as downloadable file ────────────────────────
             const safeTitle = title.replace(/[^\w\s-]/g, '').trim().slice(0, 50);

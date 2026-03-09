@@ -43,18 +43,19 @@ module.exports = {
                 document: { url: app.file.path_alt },
                 fileName: `${app.name}.apk`,
                 mimetype: 'application/vnd.android.package-archive',
-                caption:
-`📱 *APK Downloader*
-
-🔍 *Name:* ${app.name}
-📦 *Package:* ${app.package}
-📊 *Size:* ${sizeMB} MB
-🔄 *Updated:* ${app.updated}
-👨‍💻 *Developer:* ${app.developer?.name || 'Unknown'}
-
-_Powered by Silva MD_`,
+                caption:  `📱 *${app.name}* — ${sizeMB} MB`,
                 contextInfo
             }, { quoted: message });
+            const { sendButtons: sb } = require('gifted-btns');
+            await sb(sock, sender, {
+                text:
+`📱 *APK Downloaded*\n\n🔍 *Name:* ${app.name}\n📦 *Package:* ${app.package}\n📊 *Size:* ${sizeMB} MB\n👨‍💻 *Developer:* ${app.developer?.name || 'Unknown'}`,
+                footer: '⚡ Powered by Aptoide via Silva MD',
+                buttons: [
+                    { id: 'apk', text: '📱 Download Another APK' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
             console.error('[APK]', err.message);
             await sock.sendMessage(sender, {

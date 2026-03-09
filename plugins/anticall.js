@@ -2,6 +2,7 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { sendButtons } = require('gifted-btns');
 
 const SETTINGS_PATH = path.join(__dirname, '../anti-call-settings.json');
 

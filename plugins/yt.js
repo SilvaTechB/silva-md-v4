@@ -1,6 +1,7 @@
 'use strict';
 
 const ytdl = require('ytdl-core');
+const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['yt', 'youtube'],
@@ -25,22 +26,18 @@ module.exports = {
                 video:   { url: format.url },
                 caption:
 `▶️ *${details.title}*
-
-👤 Channel: ${details.author.name}
-⏱ Duration: ${Math.floor(details.lengthSeconds / 60)}m ${details.lengthSeconds % 60}s
-📊 Views: ${Number(details.viewCount).toLocaleString()}`,
-                contextInfo: {
-                    ...contextInfo,
-                    externalAdReply: {
-                        title:               details.title,
-                        body:                details.author.name,
-                        thumbnailUrl:        details.thumbnails[0]?.url,
-                        sourceUrl:           url,
-                        mediaType:           1,
-                        renderLargerThumbnail: true
-                    }
-                }
+👤 ${details.author.name}  •  ⏱ ${Math.floor(details.lengthSeconds / 60)}m ${details.lengthSeconds % 60}s`,
+                contextInfo
             }, { quoted: message });
+            await sendButtons(sock, sender, {
+                text:   `✅ *YouTube Download*\n\n🎬 ${details.title}\n👤 ${details.author.name}`,
+                footer: '⚡ Powered by Silva MD',
+                buttons: [
+                    { id: 'play', text: '🎵 Download Audio (MP3)' },
+                    { id: 'yt',   text: '▶️ Download Another' },
+                    { id: 'menu', text: '📋 Main Menu' },
+                ]
+            });
         } catch (err) {
             console.error('[YT]', err.message);
             await sock.sendMessage(sender, {
