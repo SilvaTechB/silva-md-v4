@@ -1,90 +1,65 @@
-const axios = require('axios');
-const moment = require('moment');
+'use strict';
+
+const axios  = require('axios');
+const moment = require('moment-timezone');
 
 module.exports = {
-    name: 'repo',
-    commands: ['repo', 'repository', 'github'],
-    handler: async ({ sock, m, sender, contextInfo }) => {
+    commands:    ['repo', 'repository', 'github'],
+    description: 'Show Silva MD GitHub repository info',
+    permission:  'public',
+    group:       true,
+    private:     true,
+    run: async (sock, message, args, { sender, contextInfo }) => {
+        const loading = await sock.sendMessage(sender, {
+            text: '🔄 Fetching repository details...',
+            contextInfo
+        }, { quoted: message });
+
         try {
-            const repoOwner = 'SilvaTechB';
-            const repoName = 'silva-md-bot';
-            const apiUrl = `https://api.github.com/repos/${repoOwner}/${repoName}`;
-            
-            // Show loading message with animation
-            const loadingMsg = await sock.sendMessage(sender, {
-                text: '🔄 Fetching repository details...',
-                contextInfo: contextInfo
-            }, { quoted: m });
+            const { data } = await axios.get(
+                'https://api.github.com/repos/SilvaTechB/silva-md-bot',
+                { timeout: 10000 }
+            );
 
-            const { data } = await axios.get(apiUrl);
-            const { stargazers_count, forks_count, updated_at, html_url, 
-                    description, language, open_issues, license, size } = data;
-            
-            // Format last updated time
-            const lastUpdated = moment(updated_at).fromNow();
-            
-            // Create fancy ASCII art
-            const asciiArt = `
-███████╗██╗██╗     ██╗   ██╗ █████╗ 
-██╔════╝██║██║     ██║   ██║██╔══██╗
-███████╗██║██║     ██║   ██║███████║
-╚════██║██║██║     ██║   ██║██╔══██║
-███████║██║███████╗╚██████╔╝██║  ██║
-╚══════╝╚═╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝
-            `;
-            
-            // Create repository info
-            const repoInfo = `
-*✨ SILVA MD BOT REPOSITORY*
+            if (loading) await sock.sendMessage(sender, { delete: loading.key });
 
-${asciiArt}
+            const info =
+`*✨ SILVA MD BOT REPOSITORY*
 
-📦 *Repository*: [${repoName}](${html_url})
-📝 *Description*: ${description || 'No description provided'}
+📦 *Repo:* [${data.name}](${data.html_url})
+📝 *Description:* ${data.description || 'N/A'}
 
-🌟 *Stars*: ${stargazers_count}
-🍴 *Forks*: ${forks_count}
-💻 *Language*: ${language || 'Unknown'}
-📦 *Size*: ${(size / 1024).toFixed(1)} MB
-📜 *License*: ${license?.name || 'None'}
-⚠️ *Open Issues*: ${open_issues}
-🕒 *Last Updated*: ${lastUpdated}
+🌟 *Stars:* ${data.stargazers_count}
+🍴 *Forks:* ${data.forks_count}
+💻 *Language:* ${data.language || 'Unknown'}
+📦 *Size:* ${(data.size / 1024).toFixed(1)} MB
+📜 *License:* ${data.license?.name || 'None'}
+⚠️ *Open Issues:* ${data.open_issues}
+🕒 *Last Updated:* ${moment(data.updated_at).fromNow()}
 
-⚡ *Powered by Silva Tech Inc*
-            `;
+⚡ _Powered by Silva Tech Inc_`;
 
-            // Delete loading message
-            if (loadingMsg) {
-                await sock.sendMessage(sender, {
-                    delete: loadingMsg.key
-                });
-            }
-
-            // Send repository information with image
             await sock.sendMessage(sender, {
-                image: { 
-                    url: "https://files.catbox.moe/5uli5p.jpeg" 
-                },
-                caption: repoInfo,
+                image:   { url: 'https://files.catbox.moe/5uli5p.jpeg' },
+                caption: info,
                 contextInfo: {
                     ...contextInfo,
                     externalAdReply: {
-                        title: "GitHub Repository",
-                        body: "Explore the codebase!",
-                        thumbnailUrl: "https://files.catbox.moe/5uli5p.jpeg",
-                        sourceUrl: html_url,
-                        mediaType: 1,
+                        title:               'GitHub Repository',
+                        body:                'Explore the codebase!',
+                        thumbnailUrl:        'https://files.catbox.moe/5uli5p.jpeg',
+                        sourceUrl:           data.html_url,
+                        mediaType:           1,
                         renderLargerThumbnail: true
                     }
                 }
-            }, { quoted: m });
-
-        } catch (error) {
-            console.error('❌ Repo Plugin Error:', error);
+            }, { quoted: message });
+        } catch (err) {
+            console.error('[Repo]', err.message);
             await sock.sendMessage(sender, {
-                text: '❌ Failed to fetch repo details. Please try again later.',
-                contextInfo: contextInfo
-            }, { quoted: m });
+                text: '❌ Failed to fetch repo details.',
+                contextInfo
+            }, { quoted: message });
         }
     }
 };

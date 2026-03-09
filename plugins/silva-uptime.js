@@ -1,50 +1,51 @@
+'use strict';
+
 const os = require('os');
 
-const formatTime = (seconds) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = Math.floor(seconds % 60);
-    return `${h}h ${m}m ${s}s`;
-};
-
 module.exports = {
-    commands: ['uptime', 'runtime'],
-    handler: async ({ sock, m, sender, contextInfo = {} }) => {
+    commands:    ['uptime', 'runtime'],
+    description: 'Show bot uptime and system stats',
+    permission:  'public',
+    group:       true,
+    private:     true,
+    run: async (sock, message, args, { sender, contextInfo }) => {
         try {
-            const uptime = formatTime(process.uptime());
-            const cpu = os.cpus()[0]?.model || 'Unknown CPU';
-            const platform = os.platform()?.toUpperCase() || 'Unknown';
-            const totalMem = (os.totalmem() / 1024 / 1024 / 1024).toFixed(2);
-            const freeMem = (os.freemem() / 1024 / 1024 / 1024).toFixed(2);
-            const latency = m.messageTimestamp
-                ? new Date().getTime() - m.messageTimestamp * 1000
-                : 0;
+            const uptime  = process.uptime();
+            const h = Math.floor(uptime / 3600);
+            const m = Math.floor((uptime % 3600) / 60);
+            const s = Math.floor(uptime % 60);
 
-            const caption = `
-┏━━━━━━━━━━━━━━━┓
+            const cpu      = os.cpus()[0]?.model || 'Unknown CPU';
+            const platform = os.platform().toUpperCase();
+            const totalMem = (os.totalmem() / 1073741824).toFixed(2);
+            const freeMem  = (os.freemem()  / 1073741824).toFixed(2);
+            const latency  = message.messageTimestamp
+                ? Date.now() - message.messageTimestamp * 1000 : 0;
+
+            const caption =
+`┏━━━━━━━━━━━━━━━┓
       ✦ *Silva MD Runtime* ✦
 ┗━━━━━━━━━━━━━━━┛
 
-🕒 *Uptime:* ${uptime}
+🕒 *Uptime:* ${h}h ${m}m ${s}s
 ⚡ *Latency:* ${latency} ms
 🖥 *CPU:* ${cpu}
 🏗 *Platform:* ${platform}
 🛠 *RAM:* ${freeMem} GB / ${totalMem} GB
 
-✨ _Powered by Silva Tech Inc_
-`.trim();
+✨ _Powered by Silva Tech Inc_`;
 
             await sock.sendMessage(sender, {
-                image: { url: 'https://files.catbox.moe/5uli5p.jpeg' }, // ✅ Fixed image
+                image:   { url: 'https://files.catbox.moe/5uli5p.jpeg' },
                 caption,
                 contextInfo
-            }, { quoted: m });
-        } catch (error) {
-            console.error('❌ Uptime Plugin Error:', error.message);
+            }, { quoted: message });
+        } catch (err) {
+            console.error('[Uptime]', err.message);
             await sock.sendMessage(sender, {
-                text: '⚠️ Failed to fetch runtime details. Please check logs.',
+                text: '⚠️ Failed to fetch runtime details.',
                 contextInfo
-            }, { quoted: m });
+            }, { quoted: message });
         }
     }
 };

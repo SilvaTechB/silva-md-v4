@@ -1,228 +1,216 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
-const { isJidGroup } = require('@whiskeysockets/baileys');
+const config = require('./config');
 
-// ✅ Ultra-Reliable Session Manager
-class SessionManager {
-    constructor() {
-        this.activeSessions = new Map(); // jid -> { lastActive, retryCount }
-        this.maxRetries = 3;
-        this.retryDelays = [500, 1500, 3000]; // Exponential backoff
-        this.sessionTTL = 300000; // 5 minutes
-    }
-    
-    registerSession(jid) {
-        this.activeSessions.set(jid, {
-            lastActive: Date.now(),
-            retryCount: 0
-        });
-    }
-    
-    hasValidSession(jid) {
-        const session = this.activeSessions.get(jid);
-        if (!session) return false;
-        
-        if (Date.now() - session.lastActive < this.sessionTTL) {
-            session.retryCount = 0;
-            return true;
-        }
-        
-        this.activeSessions.delete(jid);
-        return false;
-    }
-    
-    async recoverSession(sock, jid) {
-        const session = this.activeSessions.get(jid) || { retryCount: 0 };
-        
-        if (session.retryCount >= this.maxRetries) {
-            console.warn(`[Session] Max retries reached for ${jid}`);
-            return false;
-        }
-        
-        session.retryCount++;
-        const delayTime = this.retryDelays[session.retryCount - 1];
-        console.warn(`[Session] Recovery attempt ${session.retryCount} for ${jid} in ${delayTime}ms`);
-        
-        try {
-            await sock.ev.flush();
-            await sock.end();
-            await sock.connect();
-            await sock.groupFetchAllParticipating();
-            
-            this.registerSession(jid);
-            console.log(`[Session] Recovery successful for ${jid}`);
-            return true;
-        } catch (recoveryError) {
-            console.error(`[Session] Recovery failed for ${jid}:`, recoveryError.message);
-            return false;
-        }
-    }
+let isJidGroup;
+try {
+    ({ isJidGroup } = require('@whiskeysockets/baileys'));
+} catch {
+    isJidGroup = (jid) => typeof jid === 'string' && jid.endsWith('@g.us');
 }
 
-const sessionManager = new SessionManager();
+// ─── Permission constants ────────────────────────────────────────────────────
+const PERM = {
+    PUBLIC: 'public',
+    ADMIN:  'admin',
+    OWNER:  'owner'
+};
 
-// ✅ God-Mode SafeSend
-async function safeSend(sock, jid, content, options = {}) {
-    if (!jid || typeof jid !== 'string') return;
-    if (!sock?.sendMessage) return;
-    
+// ─── Group metadata cache (5 min TTL) ───────────────────────────────────────
+const groupCache = new Map();
+const GROUP_CACHE_TTL = 5 * 60 * 1000;
+
+async function getCachedGroupMetadata(sock, jid) {
+    const hit = groupCache.get(jid);
+    if (hit && Date.now() < hit.expiry) return hit.metadata;
     try {
-        if (!sessionManager.hasValidSession(jid)) {
-            const recovered = await sessionManager.recoverSession(sock, jid);
-            if (!recovered) return;
-        }
-        
-        const result = await sock.sendMessage(jid, content, options);
-        sessionManager.registerSession(jid);
-        return result;
-    } catch (error) {
-        const reason = error?.message || 'Unknown error';
-        
-        if (reason.includes('No sessions') || reason.includes('session not found')) {
-            console.warn(`[SafeSend] Session error for ${jid}: ${reason}`);
-            return safeSend(sock, jid, content, options);
-        } else if (reason.includes('not in group')) {
-            console.warn(`[SafeSend] Bot not in group ${jid}`);
-            try {
-                const inviteCode = await sock.groupInviteCode(jid);
-                await safeSend(sock, jid, {
-                    text: `📩 Rejoin link: https://chat.whatsapp.com/${inviteCode}`
-                });
-            } catch (inviteError) {
-                console.warn('[Group] Failed to get invite link:', inviteError.message);
-            }
-        } else {
-            console.error(`[SafeSend] Critical error for ${jid}:`, reason);
-        }
+        const metadata = await sock.groupMetadata(jid);
+        groupCache.set(jid, { metadata, expiry: Date.now() + GROUP_CACHE_TTL });
+        return metadata;
+    } catch {
+        return null;
     }
 }
 
-// ✅ Plugin Loader
+// Invalidate cache when group membership changes
+function bindGroupCacheInvalidation(sock) {
+    sock.ev.on('group-participants.update', ({ id }) => groupCache.delete(id));
+}
+
+// ─── Safe send ───────────────────────────────────────────────────────────────
+async function safeSend(sock, jid, content, opts = {}) {
+    if (!jid || !sock?.sendMessage) return null;
+    try {
+        return await sock.sendMessage(jid, content, opts);
+    } catch (err) {
+        console.error(`[SafeSend] ${jid}: ${err.message}`);
+        return null;
+    }
+}
+
+// ─── Global forward context (newsletter watermark) ──────────────────────────
+const GLOBAL_CONTEXT_INFO = {
+    forwardingScore: 999,
+    isForwarded: true,
+    forwardedNewsletterMessageInfo: {
+        newsletterJid: '120363200367779016@newsletter',
+        newsletterName: '◢◤ Silva Tech Nexus ◢◤',
+        serverMessageId: 144
+    }
+};
+
+// ─── Plugin loader ───────────────────────────────────────────────────────────
 const plugins = [];
 const pluginDir = path.join(__dirname, 'plugins');
-const pluginFiles = fs.existsSync(pluginDir)
-    ? fs.readdirSync(pluginDir).filter(file => file.endsWith('.js'))
-    : [];
 
-for (const file of pluginFiles) {
-    try {
+function loadPlugins() {
+    if (!fs.existsSync(pluginDir)) return;
+    const files = fs.readdirSync(pluginDir).filter(f => f.endsWith('.js'));
+
+    for (const file of files) {
         const pluginPath = path.join(pluginDir, file);
-        delete require.cache[require.resolve(pluginPath)];
-        const plugin = require(pluginPath);
-        
-        if (!plugin.commands && plugin.name) plugin.commands = [plugin.name];
-        if (typeof plugin.run !== 'function' && typeof plugin.handler === 'function') {
-            plugin.run = plugin.handler;
+        try {
+            delete require.cache[require.resolve(pluginPath)];
+            const plugin = require(pluginPath);
+
+            if (!plugin.commands && plugin.name) plugin.commands = [plugin.name];
+            if (!plugin.run && typeof plugin.handler === 'function') plugin.run = plugin.handler;
+
+            if (Array.isArray(plugin.commands) && plugin.commands.length && typeof plugin.run === 'function') {
+                plugins.push(plugin);
+                console.log(`[Plugin] Loaded: ${file} (${plugin.commands.join(', ')})`);
+            } else {
+                console.warn(`[Plugin] Skipped: ${file} — missing commands or run/handler`);
+            }
+        } catch (err) {
+            console.error(`[Plugin] Error loading ${file}:`, err.stack || err.message);
         }
-        
-        if (plugin?.commands?.length && typeof plugin.run === 'function') {
-            plugins.push(plugin);
-            console.log(`[Plugin] Loaded: ${file} (${plugin.commands.join(', ')})`);
-        } else {
-            console.warn(`[Plugin] Skipped invalid plugin: ${file}`);
-        }
-    } catch (err) {
-        console.error(`[Plugin] Error loading ${file}:`, err.stack || err);
     }
+    console.log(`[Plugin] ${plugins.length} plugins loaded`);
 }
 
-// ✅ Connection Manager
+loadPlugins();
+
+// ─── Connection handlers ─────────────────────────────────────────────────────
 function setupConnectionHandlers(sock) {
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect } = update;
-        
-        if (connection === 'close') {
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            console.log(`[Connection] Closed with status: ${statusCode || 'unknown'}`);
-            
-            if (statusCode !== 401) {
-                setTimeout(async () => {
-                    try {
-                        console.log('[Connection] Reconnecting...');
-                        await sock.connect();
-                    } catch (reconnectError) {
-                        console.error('[Connection] Reconnect failed:', reconnectError);
-                    }
-                }, 2000);
-            }
-        } else if (connection === 'open') {
-            console.log('[Connection] Successfully connected');
-            sessionManager.activeSessions.forEach((_, jid) => {
-                sessionManager.registerSession(jid);
-            });
-        }
+    bindGroupCacheInvalidation(sock);
+    sock.ev.on('connection.update', ({ connection }) => {
+        if (connection === 'open') console.log('[Handler] WhatsApp connection open.');
     });
 }
 
-// ✅ Message Handler
+// ─── Main message handler ────────────────────────────────────────────────────
 async function handleMessages(sock, message) {
     try {
         const msg = message.message;
-        const jid = message.key.remoteJid;
-        const sender = message.key.participant || jid;
-        const isFromBot = message.key.fromMe || sender === sock?.user?.id;
+        if (!msg || message.key.fromMe) return;
 
-        if (isFromBot || !msg) return;
-        sessionManager.registerSession(jid);
+        const jid    = message.key.remoteJid;
+        const sender = message.key.participant || jid;
+        if (!jid || !sender) return;
 
         const isGroup = isJidGroup(jid);
+        const prefix  = config.PREFIX || '.';
 
-        const getText = () => {
-            if (msg.conversation) return msg.conversation;
-            if (msg.extendedTextMessage?.text) return msg.extendedTextMessage.text;
-            if (msg.imageMessage?.caption) return msg.imageMessage.caption;
-            if (msg.videoMessage?.caption) return msg.videoMessage.caption;
-            return '';
-        };
-        
-        const text = getText();
-        if (!text) return;
+        // ── Extract text ─────────────────────────────────────────────────────
+        const text =
+            msg.conversation ||
+            msg.extendedTextMessage?.text ||
+            msg.imageMessage?.caption ||
+            msg.videoMessage?.caption || '';
 
-        const prefix = process.env.PREFIX || '.';
-        const isCommand = text.startsWith(prefix);
-        const args = isCommand ? text.slice(prefix.length).trim().split(/\s+/) : [];
-        const command = args.shift()?.toLowerCase();
+        if (!text.startsWith(prefix)) return;
 
-        // ✅ Inject conn here
-        const context = {
+        const parts   = text.slice(prefix.length).trim().split(/\s+/);
+        const command = parts.shift().toLowerCase();
+        const args    = parts;
+
+        // ── Resolve owner ─────────────────────────────────────────────────────
+        const ownerNum  = (config.OWNER_NUMBER || '').replace(/\D/g, '');
+        const senderNum = sender.replace(/\D/g, '').replace(/:.*$/, '');
+        const isOwner   = senderNum === ownerNum;
+
+        // ── Resolve group admin status ────────────────────────────────────────
+        let isAdmin    = false;
+        let isBotAdmin = false;
+        let groupMetadata = null;
+
+        if (isGroup) {
+            groupMetadata = await getCachedGroupMetadata(sock, jid);
+            if (groupMetadata?.participants) {
+                const botNum = (sock.user?.id || '').replace(/\D/g, '').replace(/:.*$/, '');
+                for (const p of groupMetadata.participants) {
+                    const pNum = p.id.replace(/\D/g, '').replace(/:.*$/, '');
+                    const role = p.admin;
+                    if (pNum === senderNum) isAdmin    = role === 'admin' || role === 'superadmin';
+                    if (pNum === botNum)    isBotAdmin = role === 'admin' || role === 'superadmin';
+                }
+            }
+        }
+
+        // ── Build unified context ─────────────────────────────────────────────
+        const ctx = {
             sock,
-            conn: sock,  // 👈 Added this so plugins can use conn.sendMessage
+            conn:          sock,
+            m:             message,
             message,
             sender,
             jid,
+            chat:          jid,
             isGroup,
+            isAdmin,
+            isBotAdmin,
+            isOwner,
             args,
             text,
-            safeSend: (content, opts) => safeSend(sock, jid, content, opts)
+            prefix,
+            groupMetadata,
+            contextInfo:   GLOBAL_CONTEXT_INFO,
+            mentionedJid:  msg.extendedTextMessage?.contextInfo?.mentionedJid || [],
+            safeSend:      (content, opts) => safeSend(sock, jid, content, opts),
+            reply:         (replyText) => safeSend(sock, jid, { text: replyText }, { quoted: message })
         };
 
+        // ── Dispatch ──────────────────────────────────────────────────────────
         for (const plugin of plugins) {
-            try {
-                const allowInGroup = plugin.group ?? true;
-                const allowInPrivate = plugin.private ?? true;
-                if ((isGroup && !allowInGroup) || (!isGroup && !allowInPrivate)) continue;
+            if (!plugin.commands.includes(command)) continue;
 
-                if (isCommand && plugin.commands.includes(command)) {
-                    await plugin.run(sock, message, args, context);
-                }
-                
-                if (!isCommand && typeof plugin.onMessage === 'function') {
-                    await plugin.onMessage(sock, message, text, context);
-                }
+            // Scope guards
+            const allowGroup   = plugin.group   !== false;
+            const allowPrivate = plugin.private !== false;
+            if (isGroup  && !allowGroup)   continue;
+            if (!isGroup && !allowPrivate) continue;
+
+            // Permission check
+            const perm = (plugin.permission || PERM.PUBLIC).toLowerCase();
+            let allowed = false;
+            if      (perm === PERM.PUBLIC) allowed = true;
+            else if (perm === PERM.ADMIN)  allowed = isAdmin || isOwner;
+            else if (perm === PERM.OWNER)  allowed = isOwner;
+
+            if (!allowed) {
+                const notice = perm === PERM.OWNER
+                    ? '⛔ This command is reserved for the bot owner.'
+                    : `⛔ This command requires ${isGroup ? 'group admin' : 'elevated'} privileges.`;
+                await safeSend(sock, jid, { text: notice }, { quoted: message });
+                continue;
+            }
+
+            try {
+                await plugin.run(sock, message, args, ctx);
             } catch (err) {
-                console.error(`[Plugin] Error in ${plugin.commands[0] || 'plugin'}:`, err.stack || err);
-                await safeSend(sock, jid, {
-                    text: `⚠️ Error in command: ${err.message || 'Unknown error'}`
-                });
+                console.error(`[Plugin:${command}] ${err.stack || err.message}`);
+                await safeSend(sock, jid,
+                    { text: `⚠️ Command error: ${err.message || 'unknown error'}` },
+                    { quoted: message }
+                );
             }
         }
     } catch (err) {
-        console.error('[Handler] Critical error:', err.stack || err);
+        console.error('[Handler] Fatal:', err.stack || err.message);
     }
 }
 
-module.exports = { 
-    handleMessages, 
-    safeSend, 
-    setupConnectionHandlers
-};
+module.exports = { handleMessages, safeSend, setupConnectionHandlers, PERM };

@@ -1,94 +1,68 @@
+'use strict';
+
 const axios = require('axios');
+const OWM_KEY = '060a6bcfa19809c2cd4d97a212b19273';
 
 module.exports = {
-    name: 'weather',
-    commands: ['weather', 'climate', 'mosam'],
-    handler: async ({ sock, m, sender, args, contextInfo }) => {
+    commands:    ['weather', 'climate', 'mosam'],
+    description: 'Get current weather for a location',
+    permission:  'public',
+    group:       true,
+    private:     true,
+    run: async (sock, message, args, { sender, contextInfo }) => {
+        if (!args.length) {
+            return sock.sendMessage(sender, {
+                text: '❌ Please provide a location.\nExample: .weather Nairobi',
+                contextInfo
+            }, { quoted: message });
+        }
+
+        const location = args.join(' ');
+        const loading  = await sock.sendMessage(sender, {
+            text: '⏳ Fetching weather data...',
+            contextInfo
+        }, { quoted: message });
+
         try {
-            // Check if location is provided
-            if (!args || args.length === 0) {
-                return sock.sendMessage(sender, {
-                    text: '*❌ Please provide a location to search*\nExample: .weather Nairobi',
-                    contextInfo: contextInfo
-                }, { quoted: m });
-            }
+            const { data } = await axios.get(
+                `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(location)}&units=metric&appid=${OWM_KEY}`,
+                { timeout: 10000 }
+            );
 
-            const location = args.join(' ');
-            const apiKey = '060a6bcfa19809c2cd4d97a212b19273';
-            const apiUrl = `https://api.openweathermap.org/data/2.5/weather?q=${location}&units=metric&appid=${apiKey}`;
-            
-            // Send loading message
-            const loadingMsg = await sock.sendMessage(sender, {
-                text: '⏳ Fetching weather data...',
-                contextInfo: contextInfo
-            }, { quoted: m });
+            const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`;
 
-            const response = await axios.get(apiUrl);
-            const data = response.data;
+            if (loading) await sock.sendMessage(sender, { delete: loading.key });
 
-            const name = data.name;
-            const country = data.sys.country;
-            const weatherDesc = data.weather[0].description;
-            const temp = data.main.temp + "°C";
-            const tempMin = data.main.temp_min + "°C";
-            const tempMax = data.main.temp_max + "°C";
-            const humidity = data.main.humidity + "%";
-            const windSpeed = data.wind.speed + " km/h";
-            const iconCode = data.weather[0].icon;
-            const weatherIcon = `https://openweathermap.org/img/wn/${iconCode}@4x.png`;
-
-            // Create formatted weather message
-            const weatherMessage = `
-🌍 *${name}, ${country} Weather Report*
-⏰ ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })}
-
-🌡️ Temperature: ${temp}
-📉 Min: ${tempMin} | 📈 Max: ${tempMax}
-💧 Humidity: ${humidity}
-💨 Wind: ${windSpeed}
-🌤️ Conditions: ${weatherDesc.charAt(0).toUpperCase() + weatherDesc.slice(1)}
-
-🔍 Search Query: ${location}
-            `;
-
-            // Delete loading message
-            if (loadingMsg) {
-                await sock.sendMessage(sender, {
-                    delete: loadingMsg.key
-                });
-            }
-
-            // Send weather information with icon
             await sock.sendMessage(sender, {
-                image: { url: weatherIcon },
-                caption: weatherMessage,
+                image:   { url: iconUrl },
+                caption:
+`🌍 *${data.name}, ${data.sys.country} — Weather Report*
+📅 ${new Date().toUTCString()}
+
+🌡️ Temp: ${data.main.temp}°C  (min ${data.main.temp_min}°C / max ${data.main.temp_max}°C)
+💧 Humidity: ${data.main.humidity}%
+💨 Wind: ${data.wind.speed} km/h
+🌤️ ${data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1)}
+
+_Powered by Silva MD_`,
                 contextInfo: {
                     ...contextInfo,
                     externalAdReply: {
-                        title: "Silva MD Weather Service",
-                        body: "Accurate weather information",
-                        thumbnailUrl: "https://files.catbox.moe/5uli5p.jpeg",
-                        sourceUrl: `https://openweathermap.org/city/${data.id}`,
-                        mediaType: 1,
+                        title:               'Silva MD Weather',
+                        body:                'Accurate weather information',
+                        thumbnailUrl:        'https://files.catbox.moe/5uli5p.jpeg',
+                        sourceUrl:           `https://openweathermap.org/city/${data.id}`,
+                        mediaType:           1,
                         renderLargerThumbnail: true
                     }
                 }
-            }, { quoted: m });
-
-        } catch (error) {
-            console.error('Weather Plugin Error:', error);
-            
-            let errorMessage = '❌ Failed to fetch weather data. Please try again later.';
-            if (error.response?.status === 404) {
-                errorMessage = '❌ Location not found. Please check the name and try again.';
-            } else if (error.response?.status === 401) {
-                errorMessage = '⚠️ Weather service is currently unavailable.';
-            }
-            
-            await sock.sendMessage(sender, {
-                text: errorMessage,
-                contextInfo: contextInfo
-            }, { quoted: m });
+            }, { quoted: message });
+        } catch (err) {
+            console.error('[Weather]', err.message);
+            const msg = err.response?.status === 404
+                ? '❌ Location not found. Please check the name.'
+                : '❌ Failed to fetch weather. Try again later.';
+            await sock.sendMessage(sender, { text: msg, contextInfo }, { quoted: message });
         }
     }
 };

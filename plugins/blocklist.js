@@ -1,64 +1,50 @@
+'use strict';
+
 module.exports = {
-    name: 'blocklist',
-    commands: ['blocklist', 'listblock'],
-    tags: ['main'],
-    description: 'Show list of blocked numbers',
-    handler: async ({ sock, m, sender, contextInfo }) => {
+    commands:    ['blocklist', 'listblock'],
+    description: 'Show the bot\'s blocked numbers list — owner only',
+    permission:  'owner',
+    group:       false,
+    private:     true,
+    run: async (sock, message, args, { sender, contextInfo }) => {
         try {
-            // Fetch blocklist
             const blocklist = await sock.fetchBlocklist();
-            
-            if (!blocklist || blocklist.length === 0) {
-                return sock.sendMessage(
-                    sender,
-                    { 
-                        text: '🔓 *No numbers are currently blocked*',
-                        contextInfo: contextInfo
-                    },
-                    { quoted: m }
-                );
+
+            if (!blocklist?.length) {
+                return sock.sendMessage(sender, {
+                    text: '🔓 *No numbers are currently blocked*',
+                    contextInfo
+                }, { quoted: message });
             }
 
-            // Format the list
-            let txt = `🚫 *Blocked Numbers List*\n\n• Total Blocked: ${blocklist.length}\n\n┌───⊷\n`;
+            let txt      = `🚫 *Blocked Numbers List*\n\n• Total: ${blocklist.length}\n\n┌───⊷\n`;
             const mentions = [];
-            
-            for (const number of blocklist) {
-                const num = number.split('@')[0];
-                txt += `▢ @${num}\n`;
-                mentions.push(num + '@s.whatsapp.net');
+            for (const num of blocklist) {
+                const n = num.split('@')[0];
+                txt += `▢ @${n}\n`;
+                mentions.push(`${n}@s.whatsapp.net`);
             }
             txt += '└───────────';
 
-            // Send the formatted list
-            await sock.sendMessage(
-                sender,
-                { 
-                    text: txt,
-                    mentions: mentions,
-                    contextInfo: {
-                        ...contextInfo,
-                        externalAdReply: {
-                            title: "Silva MD Blocklist",
-                            body: "Manage blocked contacts",
-                            thumbnailUrl: "https://files.catbox.moe/5uli5p.jpeg",
-                            mediaType: 1
-                        }
+            await sock.sendMessage(sender, {
+                text: txt,
+                mentions,
+                contextInfo: {
+                    ...contextInfo,
+                    externalAdReply: {
+                        title:        'Silva MD Blocklist',
+                        body:         'Blocked contacts',
+                        thumbnailUrl: 'https://files.catbox.moe/5uli5p.jpeg',
+                        mediaType:    1
                     }
-                },
-                { quoted: m }
-            );
-
-        } catch (error) {
-            console.error('Blocklist Error:', error);
-            await sock.sendMessage(
-                sender,
-                { 
-                    text: '❌ *Failed to fetch blocklist*\n' + (error.message || 'Try again later'),
-                    contextInfo: contextInfo
-                },
-                { quoted: m }
-            );
+                }
+            }, { quoted: message });
+        } catch (err) {
+            console.error('[Blocklist]', err.message);
+            await sock.sendMessage(sender, {
+                text: `❌ Failed to fetch blocklist: ${err.message}`,
+                contextInfo
+            }, { quoted: message });
         }
     }
 };

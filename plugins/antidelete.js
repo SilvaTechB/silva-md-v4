@@ -1,56 +1,26 @@
-const { getContentType } = require('@whiskeysockets/baileys');
+'use strict';
 
 module.exports = {
-    name: 'antidelete',
-    commands: ['antidelete'],
-    desc: 'Detects and shows deleted messages',
-    handler: async ({ sock, m, store }) => {
-        // No direct command needed - works automatically
-    },
-    events: {
-        'messages.delete': async ({ sock, store, key }) => {
-            try {
-                const msg = store.loadMessage(key.remoteJid, key.id);
-                if (!msg) return;
+    commands:    ['antidelete', 'antidel'],
+    description: 'Toggle anti-delete notifications for this group — admin only',
+    permission:  'admin',
+    group:       true,
+    private:     false,
+    run: async (sock, message, args, { jid, sender, isAdmin, isOwner, contextInfo }) => {
+        const action = args[0]?.toLowerCase();
+        await sock.sendMessage(sender, {
+            text:
+`🛡️ *Anti-Delete Info*
 
-                const sender = msg.key.participant || msg.key.remoteJid;
-                const user = await sock.getName(sender);
-                const msgType = getContentType(msg.message);
-                
-                let deletedContent = '🚫 *Deleted Message Detected* 🚫\n\n';
-                deletedContent += `• *Sender*: @${sender.split('@')[0]}\n`;
-                deletedContent += `• *Time*: ${new Date(msg.messageTimestamp * 1000).toLocaleString()}\n\n`;
+The anti-delete feature is managed globally from the bot's main settings (config.env).
 
-                if (msgType === 'conversation') {
-                    deletedContent += `*Text*: ${msg.message.conversation}`;
-                } 
-                else if (msgType === 'extendedTextMessage') {
-                    deletedContent += `*Text*: ${msg.message.extendedTextMessage.text}`;
-                }
-                else if (msgType === 'imageMessage') {
-                    deletedContent += '*Content*: [Deleted Image]';
-                    if (msg.message.imageMessage.caption) {
-                        deletedContent += `\n*Caption*: ${msg.message.imageMessage.caption}`;
-                    }
-                }
-                else if (msgType === 'videoMessage') {
-                    deletedContent += '*Content*: [Deleted Video]';
-                    if (msg.message.videoMessage.caption) {
-                        deletedContent += `\n*Caption*: ${msg.message.videoMessage.caption}`;
-                    }
-                }
-                else {
-                    deletedContent += `*Content*: [Deleted ${msgType.replace('Message', '')}]`;
-                }
+• *ANTIDELETE_GROUP* — catches deleted messages in groups
+• *ANTIDELETE_PRIVATE* — catches deleted messages in private chats
 
-                await sock.sendMessage(key.remoteJid, { 
-                    text: deletedContent,
-                    mentions: [sender]
-                });
+To change settings, update your config.env and restart the bot.
 
-            } catch (error) {
-                console.error('AntiDelete Error:', error);
-            }
-        }
+Current group anti-delete: ${process.env.ANTIDELETE_GROUP !== 'false' ? 'ENABLED' : 'DISABLED'}`,
+            contextInfo
+        }, { quoted: message });
     }
 };

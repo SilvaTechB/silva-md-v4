@@ -1,32 +1,26 @@
+'use strict';
+
 const { performance } = require('perf_hooks');
 
-module.exports = async (sock, globalContextInfo, config) => {
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-        const m = messages[0];
-        if (!m.message) return;
-        
-        const text = m.message.conversation || m.message.extendedTextMessage?.text || '';
-        if (!text.startsWith(config.PREFIX)) return;
-        
-        const cmd = text.slice(config.PREFIX.length).trim().split(/\s+/)[0].toLowerCase();
-        
-        if (cmd === 'ping') {
-            const start = performance.now();
-            const sender = m.key.remoteJid;
-            await sock.sendMessage(sender, { text: 'Pinging...' });
-            const end = performance.now();
+module.exports = {
+    commands:    ['ping'],
+    description: 'Check bot response time and uptime',
+    permission:  'public',
+    group:       true,
+    private:     true,
+    run: async (sock, message, args, { jid, contextInfo, safeSend }) => {
+        const start = performance.now();
+        await safeSend({ text: '🏓 Pinging...' }, { quoted: message });
+        const ms = (performance.now() - start).toFixed(2);
 
-            const uptime = process.uptime();
-            const uptimeStr = `${Math.floor(uptime / 60)} min ${Math.floor(uptime % 60)} sec`;
+        const uptime = process.uptime();
+        const h = Math.floor(uptime / 3600);
+        const m = Math.floor((uptime % 3600) / 60);
+        const s = Math.floor(uptime % 60);
 
-            const msg = `✅ *Bot is Online!*\n\n` +
-                        `⏱ *Response:* ${(end - start).toFixed(2)} ms\n` +
-                        `⏳ *Uptime:* ${uptimeStr}`;
-
-            await sock.sendMessage(sender, {
-                text: msg,
-                contextInfo: globalContextInfo
-            }, { quoted: m });
-        }
-    });
+        await safeSend({
+            text: `✅ *Bot is Online!*\n\n⏱ *Response:* ${ms} ms\n⏳ *Uptime:* ${h}h ${m}m ${s}s`,
+            contextInfo
+        }, { quoted: message });
+    }
 };
