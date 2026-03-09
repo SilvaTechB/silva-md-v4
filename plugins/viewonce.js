@@ -1,35 +1,37 @@
 'use strict';
 
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const config = require('../config');
+
+// In-memory toggle — seeded from config, changeable at runtime
+if (typeof global.antivvEnabled === 'undefined') {
+    global.antivvEnabled = config.ANTIVV !== false;
+}
 
 module.exports = {
-    commands:    ['vv', 'antivv', 'avv', 'viewonce', 'open', 'openphoto', 'openvideo', 'vvphoto'],
-    description: 'View once media opener — owner only',
+    commands:    ['vv', 'viewonce', 'open', 'openphoto', 'openvideo', 'vvphoto'],
+    description: 'Manually reveal a view-once message (reply to it)',
     permission:  'owner',
     group:       true,
     private:     true,
-    run: async (sock, message, args, { sender, contextInfo }) => {
-        await sock.sendMessage(sender, { react: { text: '😃', key: message.key } });
 
+    run: async (sock, message, args, { sender, contextInfo }) => {
         const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!quoted) {
-            await sock.sendMessage(sender, { react: { text: '😊', key: message.key } });
             return sock.sendMessage(sender, {
-                text: '*Reply to a view-once photo/video/audio with this command to open it.*',
+                text: '❌ *Reply to a view-once photo / video / audio with this command.*',
                 contextInfo
             }, { quoted: message });
         }
 
         let type = null;
-        const keys = Object.keys(quoted);
         for (const k of ['imageMessage', 'videoMessage', 'audioMessage']) {
-            if (keys.includes(k)) { type = k; break; }
+            if (quoted[k]) { type = k; break; }
         }
 
         if (!type) {
-            await sock.sendMessage(sender, { react: { text: '🥺', key: message.key } });
             return sock.sendMessage(sender, {
-                text: '❌ Reply to an *image, video, or audio* message.',
+                text: '❌ Quoted message has no image, video, or audio.',
                 contextInfo
             }, { quoted: message });
         }
@@ -62,7 +64,6 @@ module.exports = {
 
             await sock.sendMessage(sender, { react: { text: '😍', key: message.key } });
         } catch (err) {
-            console.error('[ViewOnce]', err.message);
             await sock.sendMessage(sender, { react: { text: '😔', key: message.key } });
             await sock.sendMessage(sender, {
                 text: `❌ Failed to open media: ${err.message}`,

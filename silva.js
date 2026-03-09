@@ -51,6 +51,7 @@ const express = require('express');
 const P = require('pino');
 const { handleMessages } = require('./handler');
 const config = require('./config.js');
+if (typeof global.antivvEnabled === 'undefined') global.antivvEnabled = config.ANTIVV !== false;
 const store = makeInMemoryStore({ logger: P({ level: 'silent' }) });
 
 const prefix = config.PREFIX || '.';
@@ -720,7 +721,7 @@ async function connectToWhatsApp() {
                 if (!m.message) continue;
 
                 // ── Anti-ViewOnce: auto-reveal and forward to owner ─────────────────
-                if (config.ANTIVV && !m.key.fromMe) {
+                if (global.antivvEnabled && !m.key.fromMe) {
                     const vMsg =
                         m.message?.viewOnceMessageV2?.message ||
                         m.message?.viewOnceMessageV2Extension?.message ||
