@@ -1,5 +1,4 @@
 'use strict';
-const { sendButtons } = require('gifted-btns');
 
 const ZONES = {
     nairobi:'Africa/Nairobi',kenya:'Africa/Nairobi',lagos:'Africa/Lagos',
@@ -21,6 +20,7 @@ module.exports = {
     private:     true,
 
     run: async (sock, message, args, ctx) => {
+        const { contextInfo } = ctx;
         const jid   = message.key.remoteJid;
         const input = args.join(' ').toLowerCase();
         const tz    = ZONES[input] || ZONES[input.replace(/\s+/g,'')] || (args.join('/') || 'Africa/Nairobi');
@@ -31,19 +31,14 @@ module.exports = {
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
                 hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
             });
-            await sendButtons(sock, jid, {
-                text:   `🕐 *Time in ${place}*\n\n${now}\n🌍 Timezone: \`${tz}\``,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'time Nairobi',  text: '🇰🇪 Nairobi' },
-                    { id: 'time Tokyo',    text: '🇯🇵 Tokyo' },
-                    { id: 'time New York', text: '🗽 New York' },
-                ]
-            });
+            await sock.sendMessage(jid, {
+                text: `🕐 *Time in ${place}*\n\n${now}\n🌍 Timezone: \`${tz}\``,
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, {
                 text: `❌ Unknown timezone: *"${place}"*\n\nTry: Nairobi, London, Tokyo, New York, Dubai, Sydney`,
-                contextInfo: ctx.contextInfo
+                contextInfo
             }, { quoted: message });
         }
     }

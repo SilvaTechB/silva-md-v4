@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['define', 'dict', 'meaning', 'definition'],
@@ -34,15 +33,7 @@ module.exports = {
                 }
                 if (meaning.synonyms?.length) text += `🔁 *Synonyms:* ${meaning.synonyms.slice(0,5).join(', ')}\n`;
             }
-            await sendButtons(sock, jid, {
-                text,
-                footer: '⚡ Powered by Free Dictionary API',
-                buttons: [
-                    { id: 'define', text: '📖 Define Another Word' },
-                    { id: 'wiki',   text: '🔍 Search Wikipedia' },
-                    { id: 'menu',   text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(jid, { text, contextInfo }, { quoted: message });
         } catch (err) {
             const status = err.response?.status;
             await sock.sendMessage(jid, {

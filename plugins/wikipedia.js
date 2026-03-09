@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['wiki', 'wikipedia', 'search'],
@@ -32,15 +31,18 @@ module.exports = {
             const pageUrl = content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
             const summary = (extract || '').slice(0, 1200);
             const trunc   = (extract?.length || 0) > 1200 ? '\n_[…read more on Wikipedia]_' : '';
-            await sendButtons(sock, jid, {
-                ...(thumbnail?.source ? { image: { url: thumbnail.source } } : {}),
-                text:   `📖 *${displaytitle}*\n\n${summary}${trunc}\n\n🔗 ${pageUrl}`,
-                footer: '⚡ Wikipedia via Silva MD',
-                buttons: [
-                    { id: 'wiki', text: '🔍 Search Again' },
-                    { id: 'menu', text: '📋 Main Menu' },
-                ]
-            });
+            if (thumbnail?.source) {
+                await sock.sendMessage(jid, {
+                    image:   { url: thumbnail.source },
+                    caption: `📖 *${displaytitle}*\n\n${summary}${trunc}\n\n🔗 ${pageUrl}`,
+                    contextInfo
+                }, { quoted: message });
+            } else {
+                await sock.sendMessage(jid, {
+                    text: `📖 *${displaytitle}*\n\n${summary}${trunc}\n\n🔗 ${pageUrl}`,
+                    contextInfo
+                }, { quoted: message });
+            }
         } catch {
             await sock.sendMessage(jid, { text: `❌ Nothing found for *"${query}"*.`, contextInfo }, { quoted: message });
         }

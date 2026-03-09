@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 const RIDDLES = [
     { q: "I speak without a mouth and hear without ears. I have no body, but I come alive with wind. What am I?", a: "An echo" },
@@ -40,15 +39,10 @@ module.exports = {
                 }, { quoted: message });
             }
             pending.delete(jid);
-            return sendButtons(sock, jid, {
-                text:   `✅ *The Answer Is:*\n\n${riddle.a}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'riddle', text: '🧩 New Riddle' },
-                    { id: 'joke',   text: '😂 Tell a Joke' },
-                    { id: 'menu',   text: '📋 Main Menu' },
-                ]
-            });
+            return sock.sendMessage(jid, {
+                text: `✅ *The Answer Is:*\n\n${riddle.a}`,
+                contextInfo
+            }, { quoted: message });
         }
 
         let pick;
@@ -63,14 +57,9 @@ module.exports = {
         pending.set(jid, pick);
         setTimeout(() => pending.delete(jid), 5 * 60 * 1000);
 
-        await sendButtons(sock, jid, {
-            text:   `🧩 *Riddle Time!*\n\n❓ ${pick.q}`,
-            footer: 'Think you know it? Tap below!',
-            buttons: [
-                { id: 'answer', text: '✅ Reveal Answer' },
-                { id: 'riddle', text: '🔄 Different Riddle' },
-                { id: 'menu',   text: '📋 Main Menu' },
-            ]
-        });
+        await sock.sendMessage(jid, {
+            text: `🧩 *Riddle Time!*\n\n❓ ${pick.q}\n\n_Type \`.answer\` to reveal the answer_`,
+            contextInfo
+        }, { quoted: message });
     }
 };

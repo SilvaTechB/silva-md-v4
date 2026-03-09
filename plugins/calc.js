@@ -1,5 +1,4 @@
 'use strict';
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['calc', 'calculate', 'math'],
@@ -22,14 +21,10 @@ module.exports = {
         try {
             const result = Function('"use strict"; return (' + expr + ')')();
             if (typeof result !== 'number' || !isFinite(result)) throw new Error('Invalid result');
-            await sendButtons(sock, jid, {
-                text:   `🧮 *Calculator*\n\n📥 *Input:*  \`${args.join(' ')}\`\n📤 *Result:* \`${result.toLocaleString()}\``,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'calc', text: '🧮 Calculate Again' },
-                    { id: 'menu', text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(jid, {
+                text: `🧮 *Calculator*\n\n📥 *Input:*  \`${args.join(' ')}\`\n📤 *Result:* \`${result.toLocaleString()}\``,
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, {
                 text: `❌ Invalid expression: \`${args.join(' ')}\``,

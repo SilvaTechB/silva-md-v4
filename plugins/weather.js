@@ -1,7 +1,6 @@
 'use strict';
 
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 const OWM_KEY = '060a6bcfa19809c2cd4d97a212b19273';
 
 module.exports = {
@@ -34,21 +33,20 @@ module.exports = {
 
             if (loading) await sock.sendMessage(sender, { delete: loading.key });
 
-            await sendButtons(sock, sender, {
-                image:  { url: iconUrl },
-                text:
-                    `🌍 *${data.name}, ${data.sys.country} — Weather*\n\n` +
-                    `🌡️ Temp: *${data.main.temp}°C*  (min ${data.main.temp_min}° / max ${data.main.temp_max}°)\n` +
-                    `💧 Humidity: ${data.main.humidity}%\n` +
-                    `💨 Wind: ${data.wind.speed} km/h\n` +
-                    `🌤️ ${data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1)}`,
-                footer: '⚡ Powered by OpenWeatherMap',
-                buttons: [
-                    { id: `weather ${location}`, text: `🔄 Refresh ${location}` },
-                    { id: 'weather Nairobi',     text: '🇰🇪 Nairobi' },
-                    { id: 'menu',                text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(sender, {
+                image:   { url: iconUrl },
+                caption:
+`🌍 *${data.name}, ${data.sys.country} — Weather Report*
+📅 ${new Date().toUTCString()}
+
+🌡️ Temp: ${data.main.temp}°C  (min ${data.main.temp_min}°C / max ${data.main.temp_max}°C)
+💧 Humidity: ${data.main.humidity}%
+💨 Wind: ${data.wind.speed} km/h
+🌤️ ${data.weather[0].description.charAt(0).toUpperCase() + data.weather[0].description.slice(1)}
+
+_Powered by Silva MD_`,
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             console.error('[Weather]', err.message);
             const msg = err.response?.status === 404

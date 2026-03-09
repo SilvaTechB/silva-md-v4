@@ -39,21 +39,5 @@ module.exports = {
             }
         }, { quoted: message });
 
-        const { sendButtons } = require('gifted-btns');
-        await sendButtons(sock, sender, {
-            text:   `*👑 Silva MD Bot Owner Info:*\n\n📛 Name: ${ownerName}\n📞 Number: wa.me/${ownerNumber}\n🌐 Website: https://silvatechinc.com`,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                {
-                    name: 'cta_url',
-                    buttonParamsJson: JSON.stringify({ display_text: '📞 WhatsApp Owner', url: `https://wa.me/${ownerNumber}` })
-                },
-                {
-                    name: 'cta_url',
-                    buttonParamsJson: JSON.stringify({ display_text: '🌐 Website', url: 'https://github.com/SilvaTechB/silva-md-v4' })
-                },
-                { id: 'menu', text: '📋 Main Menu' },
-            ]
-        });
     }
 };

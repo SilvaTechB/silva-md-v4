@@ -24,16 +24,11 @@ module.exports = {
 
             const name = user.split('@')[0];
 
-            const { sendButtons } = require('gifted-btns');
-            await sendButtons(sock, sender, {
-                image:  { url: pp },
-                text:   `🖼️ *Profile Picture*\n\n📱 *User:* +${name}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'spp', text: '🔄 Get PP Again' },
-                    { id: 'menu', text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(sender, {
+                image:   { url: pp },
+                caption: `🖼️ *Profile Picture*\n\n📱 *User:* +${name}`,
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             console.error('[GetPP]', err.message);
             await sock.sendMessage(sender, {

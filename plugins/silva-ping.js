@@ -1,7 +1,7 @@
 'use strict';
 
 const { performance } = require('perf_hooks');
-const { sendButtons } = require('gifted-btns');
+
 
 module.exports = {
     commands:    ['ping'],
@@ -19,14 +19,9 @@ module.exports = {
         const m = Math.floor((uptime % 3600) / 60);
         const s = Math.floor(uptime % 60);
 
-        await sendButtons(sock, message.key.remoteJid, {
-            text:   `✅ *Bot is Online!*\n\n⏱ *Response:* ${ms} ms\n⏳ *Uptime:* ${h}h ${m}m ${s}s`,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                { id: 'ping',   text: '🏓 Ping Again' },
-                { id: 'uptime', text: '⏱ Check Uptime' },
-                { id: 'menu',   text: '📋 Main Menu' },
-            ]
-        });
+        await safeSend({
+            text: `✅ *Bot is Online!*\n\n⏱ *Response:* ${ms} ms\n⏳ *Uptime:* ${h}h ${m}m ${s}s`,
+            contextInfo
+        }, { quoted: message });
     }
 };

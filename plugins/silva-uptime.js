@@ -1,7 +1,7 @@
 'use strict';
 
 const os = require('os');
-const { sendButtons } = require('gifted-btns');
+
 
 module.exports = {
     commands:    ['uptime', 'runtime'],
@@ -36,16 +36,11 @@ module.exports = {
 
 ✨ _Powered by Silva Tech Inc_`;
 
-            await sendButtons(sock, sender, {
-                image:  { url: 'https://files.catbox.moe/5uli5p.jpeg' },
-                text:   caption,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'uptime', text: '🔄 Refresh' },
-                    { id: 'ping',   text: '🏓 Ping' },
-                    { id: 'menu',   text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(sender, {
+                image:   { url: 'https://files.catbox.moe/5uli5p.jpeg' },
+                caption,
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             console.error('[Uptime]', err.message);
             await sock.sendMessage(sender, {

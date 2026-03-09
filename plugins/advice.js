@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['advice', 'tip'],
@@ -10,6 +9,7 @@ module.exports = {
     private:     true,
 
     run: async (sock, message, args, ctx) => {
+        const { contextInfo } = ctx;
         const jid = message.key.remoteJid;
         let text;
         try {
@@ -26,14 +26,6 @@ module.exports = {
             ];
             text = `💡 *Advice*\n\n"${fallbacks[Math.floor(Math.random() * fallbacks.length)]}"`;
         }
-        await sendButtons(sock, jid, {
-            text,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                { id: 'advice', text: '💡 New Advice' },
-                { id: 'quote',  text: '💬 Get a Quote' },
-                { id: 'menu',   text: '📋 Main Menu' },
-            ]
-        });
+        await sock.sendMessage(jid, { text, contextInfo }, { quoted: message });
     }
 };

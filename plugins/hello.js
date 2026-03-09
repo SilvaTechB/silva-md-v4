@@ -1,7 +1,5 @@
 'use strict';
 
-const { sendButtons } = require('gifted-btns');
-
 module.exports = {
     commands:    ['hello'],
     description: 'Simple hello test command',
@@ -9,15 +7,11 @@ module.exports = {
     group:       true,
     private:     true,
     run: async (sock, message, args, ctx) => {
+        const { contextInfo } = ctx;
         const jid = message.key.remoteJid;
-        await sendButtons(sock, jid, {
-            text:   `✅ *Hello!*\n\nArgs received: ${args.join(', ') || 'none'}`,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                { id: 'hello', text: '👋 Hello Again' },
-                { id: 'ping',  text: '🏓 Ping Bot' },
-                { id: 'menu',  text: '📋 Main Menu' },
-            ]
-        });
+        await sock.sendMessage(jid, {
+            text: `✅ *Hello!*\n\nArgs received: ${args.join(', ') || 'none'}`,
+            contextInfo
+        }, { quoted: message });
     }
 };

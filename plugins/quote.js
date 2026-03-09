@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['quote', 'inspire', 'motivation'],
@@ -26,14 +25,9 @@ module.exports = {
             const pick = fallbacks[Math.floor(Math.random() * fallbacks.length)];
             content = pick.q; author = pick.a;
         }
-        await sendButtons(sock, jid, {
+        await sock.sendMessage(jid, {
             text: `💬 *Quote of the Moment*\n\n"${content}"\n\n— *${author}*`,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                { id: 'quote', text: '💬 Another Quote' },
-                { id: 'inspire', text: '✨ Inspire Me' },
-                { id: 'menu',  text: '📋 Main Menu' },
-            ]
-        });
+            contextInfo
+        }, { quoted: message });
     }
 };

@@ -1,6 +1,6 @@
 'use strict';
 
-const { sendButtons } = require('gifted-btns');
+
 
 module.exports = {
     commands:    ['blocklist', 'listblock'],
@@ -28,14 +28,7 @@ module.exports = {
             }
             txt += '└───────────';
 
-            await sendButtons(sock, sender, {
-                text:   txt,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'blocklist', text: '🔄 Refresh List' },
-                    { id: 'menu',      text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(sender, { text: txt, contextInfo }, { quoted: message });
         } catch (err) {
             console.error('[Blocklist]', err.message);
             await sock.sendMessage(sender, {

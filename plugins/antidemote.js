@@ -1,6 +1,5 @@
 'use strict';
 
-const { sendButtons } = require('gifted-btns');
 // Groups where anti-demote is enabled — read by silva.js event handler
 const enabledGroups = new Set();
 global.antiDemoteGroups = enabledGroups;
@@ -26,35 +25,22 @@ module.exports = {
 
         if (action === 'on') {
             enabledGroups.add(jid);
-            await sendButtons(sock, jid, {
-                text:   '🛡️ *Anti-Demote is ON*\n\nAnyone who demotes a group admin will be re-promoted automatically.',
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'antidemote off', text: '🔴 Turn OFF' },
-                    { id: 'menu',           text: '📋 Main Menu' },
-                ]
-            });
+            await safeSend({
+                text: '🛡️ *Anti-Demote is ON*\n\nAnyone who demotes a group admin will be removed from the group.',
+                contextInfo
+            }, { quoted: message });
         } else if (action === 'off') {
             enabledGroups.delete(jid);
-            await sendButtons(sock, jid, {
-                text:   '🛡️ *Anti-Demote is OFF*',
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'antidemote on', text: '🟢 Turn ON' },
-                    { id: 'menu',          text: '📋 Main Menu' },
-                ]
-            });
+            await safeSend({
+                text: '🛡️ *Anti-Demote is OFF*',
+                contextInfo
+            }, { quoted: message });
         } else {
             const status = enabledGroups.has(jid) ? '✅ ON' : '❌ OFF';
-            await sendButtons(sock, jid, {
-                text:   `🛡️ *Anti-Demote*\n\nStatus: ${status}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'antidemote on',  text: '🟢 Enable' },
-                    { id: 'antidemote off', text: '🔴 Disable' },
-                    { id: 'menu',           text: '📋 Main Menu' },
-                ]
-            });
+            await safeSend({
+                text: `🛡️ *Anti-Demote*\nStatus: ${status}\n\n*Usage:*\n• \`.antidemote on\` — enable\n• \`.antidemote off\` — disable`,
+                contextInfo
+            }, { quoted: message });
         }
     }
 };

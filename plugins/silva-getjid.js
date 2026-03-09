@@ -1,6 +1,6 @@
 'use strict';
 
-const { sendButtons } = require('gifted-btns');
+
 const THUMB = 'https://files.catbox.moe/5uli5p.jpeg';
 
 module.exports = {
@@ -28,16 +28,11 @@ module.exports = {
 
 ✨ _Powered by Silva Tech Inc_`;
 
-            await sendButtons(sock, sender, {
-                image:  { url: THUMB },
-                text:   caption,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'getjid', text: '🔄 Get JID Again' },
-                    { id: 'ping',   text: '🏓 Ping Bot' },
-                    { id: 'menu',   text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(sender, {
+                image:   { url: THUMB },
+                caption,
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             console.error('[GetJID]', err.message);
             await sock.sendMessage(sender, {

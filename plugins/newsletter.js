@@ -1,6 +1,4 @@
 const config = require('../config');
-const { sendButtons } = require('gifted-btns');
-
 const followedThisSession = new Set();
 
 module.exports = {

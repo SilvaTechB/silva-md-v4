@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['numberfact', 'numfact', 'number'],
@@ -18,15 +17,10 @@ module.exports = {
         try {
             const res  = await axios.get(`http://numbersapi.com/${num}/${type}`, { timeout: 8000 });
             const fact = typeof res.data === 'string' ? res.data : String(res.data);
-            await sendButtons(sock, jid, {
-                text:   `🔢 *Number Fact*\n\n${fact}`,
-                footer: '⚡ Powered by NumbersAPI',
-                buttons: [
-                    { id: 'numberfact',          text: '🔢 Random Number' },
-                    { id: `numberfact ${num} math`, text: '📐 Math Fact' },
-                    { id: 'menu',                text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(jid, {
+                text: `🔢 *Number Fact*\n\n${fact}`,
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, { text: `❌ Couldn't fetch number fact.`, contextInfo }, { quoted: message });
         }

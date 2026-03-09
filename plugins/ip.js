@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['ip', 'iplookup', 'ipinfo'],
@@ -24,7 +23,7 @@ module.exports = {
             });
             const d = res.data;
             if (d.status !== 'success') throw new Error(d.message || 'Lookup failed');
-            await sendButtons(sock, jid, {
+            await sock.sendMessage(jid, {
                 text:
                     `🌐 *IP Lookup: ${d.query}*\n\n` +
                     `🏳️ *Country:* ${d.country}\n` +
@@ -34,13 +33,8 @@ module.exports = {
                     `🏢 *ISP:* ${d.isp}\n` +
                     `📱 *Mobile:* ${d.mobile ? 'Yes' : 'No'}\n` +
                     `🕵️ *Proxy/VPN:* ${d.proxy ? '⚠️ Yes' : 'No'}`,
-                footer: '⚡ Powered by ip-api.com',
-                buttons: [
-                    { id: 'ip 8.8.8.8',  text: '🔍 Google DNS (8.8.8.8)' },
-                    { id: 'ip',          text: '🌐 Look Up Another IP' },
-                    { id: 'menu',        text: '📋 Main Menu' },
-                ]
-            });
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             await sock.sendMessage(jid, { text: `❌ IP lookup failed: ${err.message}`, contextInfo }, { quoted: message });
         }

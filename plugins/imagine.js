@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['imagine', 'generate', 'aiimage', 'img'],
@@ -28,16 +27,11 @@ module.exports = {
             const seed   = Math.floor(Math.random() * 999999);
             const imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
             const res    = await axios.get(imgUrl, { responseType: 'arraybuffer', timeout: 60000 });
-            await sendButtons(sock, jid, {
-                image:  Buffer.from(res.data),
-                text:   `🎨 *AI Generated Image*\n\n📝 *Prompt:* ${prompt}`,
-                footer: '⚡ Powered by Pollinations AI',
-                buttons: [
-                    { id: `imagine ${prompt}`, text: '🔄 Regenerate' },
-                    { id: 'imagine',           text: '🎨 New Prompt' },
-                    { id: 'menu',              text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(jid, {
+                image:   Buffer.from(res.data),
+                caption: `🎨 *AI Generated Image*\n\n📝 *Prompt:* ${prompt}`,
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             await sock.sendMessage(jid, { text: `❌ Image generation failed: ${err.message}`, contextInfo }, { quoted: message });
         }

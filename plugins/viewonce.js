@@ -1,7 +1,5 @@
 'use strict';
 
-const { sendButtons } = require('gifted-btns');
-
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const config = require('../config');
 

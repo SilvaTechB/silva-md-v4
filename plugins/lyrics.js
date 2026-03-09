@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['lyrics', 'lyric'],
@@ -23,22 +22,16 @@ module.exports = {
         const sep    = query.includes(' - ') ? query.split(' - ') : [null, query];
         const artist = sep[0]?.trim() || 'unknown';
         const title  = sep[1]?.trim() || sep[0]?.trim() || query;
-
         try {
-            const res  = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { timeout: 12000 });
-            const raw  = res.data?.lyrics;
+            const res = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { timeout: 12000 });
+            const raw = res.data?.lyrics;
             if (!raw) throw new Error('Not found');
-            const lyrics  = raw.trim().slice(0, 3500);
-            const trunc   = raw.length > 3500 ? '\n_[…truncated]_' : '';
-            await sendButtons(sock, jid, {
-                text:   `🎵 *${title}* — ${artist}\n\n${lyrics}${trunc}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'lyrics', text: '🎵 Search Lyrics' },
-                    { id: 'play',   text: '▶️ Play Song' },
-                    { id: 'menu',   text: '📋 Main Menu' },
-                ]
-            });
+            const lyrics = raw.trim().slice(0, 3500);
+            const trunc  = raw.length > 3500 ? '\n_[…truncated]_' : '';
+            await sock.sendMessage(jid, {
+                text: `🎵 *${title}* — ${artist}\n\n${lyrics}${trunc}`,
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, {
                 text: `❌ Lyrics not found for *"${title}"* by *${artist}*.\n\nFormat: \`.lyrics Artist - Song Title\``,

@@ -1,7 +1,7 @@
 'use strict';
 
 const axios  = require('axios');
-const { sendButtons } = require('gifted-btns');
+
 const VT_KEY = '23e62ab81fe1c82d865f39fc674dead42b1ae2b3079fffebf96be5b19aebcf47';
 
 module.exports = {
@@ -59,7 +59,7 @@ module.exports = {
                     ? `⚠️ SUSPICIOUS (${stats.suspicious} engines flagged)`
                     : '✅ SAFE';
 
-            await sendButtons(sock, sender, {
+            await sock.sendMessage(sender, {
                 text:
 `🛡️ *URL Safety Report*
 
@@ -72,12 +72,8 @@ module.exports = {
 ⚠️ Suspicious: ${stats.suspicious}
 ❌ Malicious: ${stats.malicious}
 ❓ Undetected: ${stats.undetected}`,
-                footer: '⚡ Powered by VirusTotal',
-                buttons: [
-                    { id: 'virus', text: '🛡️ Scan Another URL' },
-                    { id: 'menu',  text: '📋 Main Menu' },
-                ]
-            });
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             console.error('[VirusScan]', err.message);
             await sock.sendMessage(sender, {

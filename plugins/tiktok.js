@@ -84,16 +84,6 @@ module.exports = {
                 caption: videoCaption,
                 contextInfo
             }, { quoted: message });
-            const { sendButtons: sb } = require('gifted-btns');
-            await sb(sock, sender, {
-                text:   `✅ *TikTok Downloaded*\n\n${videoCaption}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'tiktok', text: '🎵 Download Another' },
-                    { id: 'yt',     text: '▶️ YouTube Download' },
-                    { id: 'menu',   text: '📋 Main Menu' },
-                ]
-            });
         } finally {
             if (fs.existsSync(tempPath)) try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
         }

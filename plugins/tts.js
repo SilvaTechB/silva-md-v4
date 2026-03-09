@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 const VOICES = { en:'en',fr:'fr',sw:'sw',ar:'ar',es:'es',de:'de',ja:'ja',zh:'zh-CN',hi:'hi',pt:'pt' };
 
@@ -30,15 +29,6 @@ module.exports = {
             const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${lang}&q=${encodeURIComponent(text)}`;
             const res    = await axios.get(ttsUrl, { responseType: 'arraybuffer', timeout: 15000, headers: { 'User-Agent': 'Mozilla/5.0' } });
             await sock.sendMessage(jid, { audio: Buffer.from(res.data), mimetype: 'audio/mpeg', ptt: true }, { quoted: message });
-            await sendButtons(sock, jid, {
-                text:   `🎤 *Text-to-Speech*\n\n📝 "${text}"\n🌍 Language: ${lang.toUpperCase()}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'tts', text: '🎤 Speak Again' },
-                    { id: 'translate', text: '🌍 Translate Text' },
-                    { id: 'menu', text: '📋 Main Menu' },
-                ]
-            });
         } catch (err) {
             await sock.sendMessage(jid, { text: `❌ TTS failed: ${err.message}`, contextInfo }, { quoted: message });
         }

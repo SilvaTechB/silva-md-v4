@@ -67,16 +67,6 @@ module.exports = {
                     }
                 }, { quoted: message });
             }
-            const { sendButtons: sb } = require('gifted-btns');
-            await sb(sock, sender, {
-                text:   `✅ *Instagram Downloaded*\n\n📸 ${slice.length} item(s) sent`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'instagram', text: '📸 Download Another' },
-                    { id: 'tiktok',    text: '🎵 TikTok Download' },
-                    { id: 'menu',      text: '📋 Main Menu' },
-                ]
-            });
         } catch (err) {
             console.error('[Instagram]', err.message);
             if (loading) await sock.sendMessage(sender, { delete: loading.key }).catch(() => {});

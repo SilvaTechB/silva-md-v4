@@ -1,5 +1,4 @@
 'use strict';
-const { sendButtons } = require('gifted-btns');
 
 const ENCODE = {
     a:'.-',b:'-...',c:'-.-.',d:'-..',e:'.',f:'..-.',g:'--.',h:'....',i:'..',
@@ -34,16 +33,11 @@ module.exports = {
         const input = args.slice(1).join(' ');
         const isEnc = mode === 'encode' || mode === 'enc';
         const result = isEnc ? encode(input) : decode(input);
-        await sendButtons(sock, jid, {
-            text:   isEnc
+        await sock.sendMessage(jid, {
+            text: isEnc
                 ? `📡 *Morse Encoder*\n\n📝 *Text:* ${input}\n\n📻 *Morse:* \`${result}\``
                 : `📡 *Morse Decoder*\n\n📻 *Morse:* \`${input}\`\n\n📝 *Text:* ${result.toUpperCase()}`,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                { id: 'morse encode', text: '📡 Encode Text' },
-                { id: 'morse decode', text: '🔓 Decode Morse' },
-                { id: 'menu',         text: '📋 Main Menu' },
-            ]
-        });
+            contextInfo
+        }, { quoted: message });
     }
 };

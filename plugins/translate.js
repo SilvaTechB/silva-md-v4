@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['translate', 'tr'],
@@ -28,18 +27,13 @@ module.exports = {
             });
             const translated = res.data?.responseData?.translatedText;
             if (!translated || res.data.responseStatus !== 200) throw new Error('Translation failed');
-            await sendButtons(sock, jid, {
+            await sock.sendMessage(jid, {
                 text:
                     `🌍 *Translation*\n\n` +
                     `📝 *Original (en):*\n${text}\n\n` +
                     `✅ *Translated (${targetLang.toUpperCase()}):*\n${translated}`,
-                footer: '⚡ Powered by MyMemory API',
-                buttons: [
-                    { id: `translate ${targetLang}`, text: `🔄 Translate Again (${targetLang.toUpperCase()})` },
-                    { id: 'tts',                    text: '🎤 Speak Translation' },
-                    { id: 'menu',                   text: '📋 Main Menu' },
-                ]
-            });
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, {
                 text: `❌ Translation failed. Check the language code and try again.\n_Codes: fr, es, de, ar, sw, zh, ja, pt, hi, ru_`,

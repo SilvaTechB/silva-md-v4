@@ -67,20 +67,10 @@ module.exports = {
                 : mimeType.includes('audio') ? 'Audio'
                 : 'File';
 
-            const { sendButtons: sb } = require('gifted-btns');
-            await sb(sock, sender, {
-                text:
-`⬆️ *${mediaLabel} Uploaded*\n\n📦 *Size:* ${sizeStr}\n🔗 *URL:* ${mediaUrl}`,
-                footer: '⚡ Powered by Catbox.moe via Silva MD',
-                buttons: [
-                    { id: 'tourl', text: '⬆️ Upload Another' },
-                    {
-                        name: 'cta_url',
-                        buttonParamsJson: JSON.stringify({ display_text: '🌐 Open File', url: mediaUrl })
-                    },
-                    { id: 'menu', text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(sender, {
+                text: `⬆️ *${mediaLabel} Uploaded*\n\n📦 *Size:* ${sizeStr}\n🔗 *URL:* ${mediaUrl}`,
+                contextInfo
+            }, { quoted: message });
         } catch (err) {
             console.error('[Catbox]', err.message);
             await sock.sendMessage(sender, {

@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 const DAILY_VERSES = [
     'john 3:16','psalm 23:1','proverbs 3:5-6','philippians 4:13',
@@ -25,15 +24,10 @@ module.exports = {
             const res = await axios.get(`https://bible-api.com/${encodeURIComponent(ref)}`, { timeout: 10000 });
             const { reference, text, translation_name } = res.data;
             if (!text) throw new Error('Not found');
-            await sendButtons(sock, jid, {
-                text:   `✝️ *${reference}*\n\n_${text.trim()}_\n\n📖 Translation: ${translation_name || 'KJV'}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'bible',      text: '✝️ Random Verse' },
-                    { id: 'bible john 3:16', text: '📖 John 3:16' },
-                    { id: 'menu',       text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(jid, {
+                text: `✝️ *${reference}*\n\n_${text.trim()}_\n\n📖 Translation: ${translation_name || 'KJV'}`,
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, {
                 text: `❌ Verse not found for *"${ref}"*.\n\nTry: \`.bible john 3:16\` or just \`.bible\``,

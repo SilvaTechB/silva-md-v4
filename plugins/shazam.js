@@ -14,7 +14,6 @@ module.exports = {
 
     run: async (sock, message, args, ctx) => {
         const { jid, sender, contextInfo, safeSend } = ctx;
-        const { sendButtons } = require('gifted-btns');
         const quoted = message.message?.extendedTextMessage?.contextInfo?.quotedMessage;
         if (!quoted) {
             return safeSend({
@@ -67,15 +66,7 @@ module.exports = {
                 `🔗 *Apple Music:* ${result.apple_music?.url || 'N/A'}\n` +
                 `🎧 *Spotify:* ${result.spotify?.external_urls?.spotify || 'N/A'}`;
 
-            await sendButtons(sock, message.key.remoteJid, {
-                text,
-                footer: '⚡ Powered by AudD via Silva MD',
-                buttons: [
-                    { id: 'shazam',  text: '🎧 Identify Another Song' },
-                    { id: 'play',    text: '▶️ Play This Song' },
-                    { id: 'menu',    text: '📋 Main Menu' },
-                ]
-            });
+            await safeSend({ text, contextInfo }, { quoted: message });
         } catch (err) {
             console.error('[Shazam]', err.message);
             await safeSend({

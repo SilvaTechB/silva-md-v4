@@ -1,7 +1,7 @@
 'use strict';
 
 const config = require('../config');
-const { sendButtons } = require('gifted-btns');
+
 
 if (typeof global.antivvEnabled === 'undefined') {
     global.antivvEnabled = config.ANTIVV !== false;
@@ -33,15 +33,11 @@ module.exports = {
         const label  = state ? 'ENABLED' : 'DISABLED';
 
         await sock.sendMessage(jid, { react: { text: state ? '👁️' : '🙈', key: message.key } });
-        await sendButtons(sock, jid, {
-            text:   `${icon} *Anti-ViewOnce ${label}*\n\n${state
-                ? '👁️ All view-once messages will now be automatically revealed and forwarded to the owner.'
+        await sock.sendMessage(jid, {
+            text: `${icon} *Anti-ViewOnce ${label}*\n\n${state
+                ? '👁️ All view-once messages will be automatically revealed and forwarded to the owner.'
                 : '🙈 Automatic view-once reveal is now off.'}`,
-            footer: '⚡ Powered by Silva MD',
-            buttons: [
-                { id: state ? 'antivv off' : 'antivv on', text: state ? '🙈 Turn OFF' : '👁️ Turn ON' },
-                { id: 'menu', text: '📋 Main Menu' },
-            ]
-        });
+            contextInfo
+        }, { quoted: message });
     }
 };

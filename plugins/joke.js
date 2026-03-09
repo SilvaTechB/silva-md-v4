@@ -1,6 +1,5 @@
 'use strict';
 const axios = require('axios');
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['joke', 'jokes'],
@@ -22,15 +21,7 @@ module.exports = {
             const jokeText = data.type === 'twopart'
                 ? `😂 *Joke* _(${data.category})_\n\n❓ ${data.setup}\n\n💬 ${data.delivery}`
                 : `😂 *Joke* _(${data.category})_\n\n${data.joke}`;
-            await sendButtons(sock, jid, {
-                text:   jokeText,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'joke',            text: '😂 Another Joke' },
-                    { id: 'joke programming', text: '💻 Dev Joke' },
-                    { id: 'menu',            text: '📋 Main Menu' },
-                ]
-            });
+            await sock.sendMessage(jid, { text: jokeText, contextInfo }, { quoted: message });
         } catch (err) {
             await sock.sendMessage(jid, { text: `❌ Couldn't fetch a joke: ${err.message}`, contextInfo }, { quoted: message });
         }

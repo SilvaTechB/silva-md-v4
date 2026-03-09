@@ -1,5 +1,4 @@
 'use strict';
-const { sendButtons } = require('gifted-btns');
 
 module.exports = {
     commands:    ['base64', 'b64'],
@@ -25,17 +24,12 @@ module.exports = {
             const result = isEnc
                 ? Buffer.from(input, 'utf8').toString('base64')
                 : Buffer.from(input, 'base64').toString('utf8');
-            await sendButtons(sock, jid, {
-                text:   isEnc
+            await sock.sendMessage(jid, {
+                text: isEnc
                     ? `🔐 *Base64 Encoder*\n\n📝 *Input:*\n${input}\n\n📦 *Encoded:*\n\`\`\`${result}\`\`\``
                     : `🔓 *Base64 Decoder*\n\n📦 *Input:*\n\`${input}\`\n\n📝 *Decoded:*\n${result}`,
-                footer: '⚡ Powered by Silva MD',
-                buttons: [
-                    { id: 'base64 encode', text: '🔒 Encode' },
-                    { id: 'base64 decode', text: '🔓 Decode' },
-                    { id: 'menu',          text: '📋 Main Menu' },
-                ]
-            });
+                contextInfo
+            }, { quoted: message });
         } catch {
             await sock.sendMessage(jid, { text: `❌ Invalid Base64 string.`, contextInfo }, { quoted: message });
         }
