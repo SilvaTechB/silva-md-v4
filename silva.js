@@ -311,9 +311,6 @@ async function updateProfileStatus(sock) {
 
 // ✅ Connect to WhatsApp (main)
 async function connectToWhatsApp() {
-    // Load session from compressed base64
-    await loadSession();
-    
     // Use the session directory for multi-file auth state
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
@@ -879,6 +876,9 @@ process.on('unhandledRejection', (reason, promise) => {
 (async () => {
     try {
         logMessage('INFO', 'Booting Silva MD Bot...');
+        // loadSession is called ONCE here at startup.
+        // connectToWhatsApp() and all reconnects reuse the saved state on disk.
+        await loadSession();
         await connectToWhatsApp();
     } catch (e) {
         logMessage('CRITICAL', `Bot Init Failed: ${e.stack || e.message}`);
