@@ -107,9 +107,13 @@ async function handleMessages(sock, message) {
         const msg = message.message;
         if (!msg || message.key.fromMe) return;
 
+        // jid  = the chat to respond to (group JID or private JID)
+        // from = the individual who typed the command
         const jid    = message.key.remoteJid;
-        const sender = message.key.participant || jid;
-        if (!jid || !sender) return;
+        const from   = message.key.participant || jid;
+        // sender = chat JID for responses (matches legacy plugin expectation of m.key.remoteJid)
+        const sender = jid;
+        if (!jid || !from) return;
 
         const isGroup = isJidGroup(jid);
         const prefix  = config.PREFIX || '.';
@@ -127,10 +131,12 @@ async function handleMessages(sock, message) {
         const command = parts.shift().toLowerCase();
         const args    = parts;
 
+        console.log(`[HANDLER] cmd=${command} jid=${jid} from=${from}`);
+
         // ── Resolve owner ─────────────────────────────────────────────────────
         const ownerNum  = (config.OWNER_NUMBER || '').replace(/\D/g, '');
-        const senderNum = sender.replace(/\D/g, '').replace(/:.*$/, '');
-        const isOwner   = senderNum === ownerNum;
+        const fromNum   = from.replace(/\D/g, '').replace(/:.*$/, '');
+        const isOwner   = fromNum === ownerNum;
 
         // ── Resolve group admin status ────────────────────────────────────────
         let isAdmin    = false;
@@ -144,8 +150,8 @@ async function handleMessages(sock, message) {
                 for (const p of groupMetadata.participants) {
                     const pNum = p.id.replace(/\D/g, '').replace(/:.*$/, '');
                     const role = p.admin;
-                    if (pNum === senderNum) isAdmin    = role === 'admin' || role === 'superadmin';
-                    if (pNum === botNum)    isBotAdmin = role === 'admin' || role === 'superadmin';
+                    if (pNum === fromNum)  isAdmin    = role === 'admin' || role === 'superadmin';
+                    if (pNum === botNum)   isBotAdmin = role === 'admin' || role === 'superadmin';
                 }
             }
         }
@@ -156,7 +162,8 @@ async function handleMessages(sock, message) {
             conn:          sock,
             m:             message,
             message,
-            sender,
+            sender,               // = jid (the chat) — where plugins send responses
+            from,                 // = individual who typed the command
             jid,
             chat:          jid,
             isGroup,

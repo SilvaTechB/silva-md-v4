@@ -591,9 +591,7 @@ async function connectToWhatsApp() {
         try {
             if (!Array.isArray(messages) || messages.length === 0) return;
 
-            // ✅ FIX 1: Correct event filtering - process only real-time messages
             if (type && !['notify', 'append'].includes(type)) {
-                logMessage('DEBUG', `Skipping message type: ${type}`);
                 return;
             }
 
