@@ -16,27 +16,39 @@ const CATEGORIES = [
     },
     {
         icon: '🎵',
-        name: 'Music',
-        desc: 'Search & download audio',
-        cmds: ['play', 'shazam']
+        name: 'Music & Lyrics',
+        desc: 'Search, download & find lyrics',
+        cmds: ['play', 'shazam', 'lyrics']
     },
     {
         icon: '🤖',
         name: 'AI & Tools',
-        desc: 'Smart utilities & AI',
-        cmds: ['ai', 'translate', 'define', 'shorten', 'gitclone', 'scanurl', 'tourl', 'qrcode']
+        desc: 'Smart utilities & AI power',
+        cmds: ['ai', 'imagine', 'translate', 'define', 'tts', 'calc', 'qrcode', 'base64', 'shorten', 'gitclone']
+    },
+    {
+        icon: '🌍',
+        name: 'Search & Info',
+        desc: 'Wikipedia, country, IP & more',
+        cmds: ['wiki', 'country', 'ip', 'currency', 'time', 'weather', 'numberfact']
     },
     {
         icon: '🖼️',
         name: 'Media & Stickers',
-        desc: 'Stickers, media tools',
+        desc: 'Stickers, view-once & media',
         cmds: ['sticker', 'vv']
     },
     {
         icon: '😄',
-        name: 'Fun & Facts',
-        desc: 'Entertainment & trivia',
-        cmds: ['joke', 'fact', 'hello', 'weather']
+        name: 'Fun & Entertainment',
+        desc: 'Jokes, riddles, facts & games',
+        cmds: ['joke', 'fact', 'riddle', 'meme', 'quote', 'advice', 'compliment', 'flip', 'bible', 'hello']
+    },
+    {
+        icon: '🔒',
+        name: 'Privacy & Encoding',
+        desc: 'Password, morse & encoding tools',
+        cmds: ['password', 'morse', 'base64']
     },
     {
         icon: '🛡️',
