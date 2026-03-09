@@ -4,6 +4,7 @@ const playdl = require('play-dl');
 const axios  = require('axios');
 
 const FALLBACK_APIS = (link) => [
+    `https://apiskeith.top/download/audio?url=${encodeURIComponent(link)}`,
     `https://api.siputzx.my.id/api/d/ytmp3?url=${encodeURIComponent(link)}`,
     `https://api.davidcyriltech.my.id/download/ytmp3?url=${encodeURIComponent(link)}`,
     `https://api.akuari.my.id/downloader/youtubeaudio?link=${encodeURIComponent(link)}`
@@ -84,6 +85,7 @@ module.exports = {
                     try {
                         const { data } = await axios.get(url, { timeout: 25000 });
                         const dl =
+                            (typeof data?.result === 'string' ? data.result : null) ||
                             data?.result?.downloadUrl ||
                             data?.result?.url ||
                             data?.download ||
