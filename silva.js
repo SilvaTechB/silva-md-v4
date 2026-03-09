@@ -724,16 +724,33 @@ async function connectToWhatsApp() {
                 const isNewsletter = sender && sender.endsWith && sender.endsWith('@newsletter');
                 const isBroadcast = isJidBroadcast(sender) || isJidStatusBroadcast(sender);
 
-                // --- Newsletter messages — react then skip (no commands from newsletters)
+                // --- Newsletter messages — autofollow + react then skip
                 if (isNewsletter) {
-                    if (config.AUTO_REACT_NEWSLETTER && process.uptime() > 25) {
-                        try {
-                            const emojis = ['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'];
-                            const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-                            await sock.sendMessage(m.key.remoteJid, {
-                                react: { text: randomEmoji, key: m.key }
-                            });
-                        } catch (e) { /* ignore */ }
+                    if (process.uptime() > 25) {
+                        const nlJid = m.key.remoteJid;
+
+                        // Auto-follow if enabled and not already followed this session
+                        if (config.AUTO_FOLLOW_NEWSLETTER && !global._followedNewsletters?.has(nlJid)) {
+                            try {
+                                await sock.newsletterFollow(nlJid);
+                                if (!global._followedNewsletters) global._followedNewsletters = new Set();
+                                global._followedNewsletters.add(nlJid);
+                                logMessage('INFO', `Auto-followed newsletter: ${nlJid}`);
+                            } catch (e) {
+                                logMessage('WARN', `Newsletter follow failed (${nlJid}): ${e.message}`);
+                            }
+                        }
+
+                        // Auto-react if enabled
+                        if (config.AUTO_REACT_NEWSLETTER) {
+                            try {
+                                const emojis = ['🤖','🔥','💫','❤️','👍','💯','✨','👏','😎'];
+                                const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+                                await sock.sendMessage(nlJid, {
+                                    react: { text: randomEmoji, key: m.key }
+                                });
+                            } catch (e) { /* ignore */ }
+                        }
                     }
                     continue;
                 }
