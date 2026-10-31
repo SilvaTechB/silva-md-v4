@@ -5,10 +5,35 @@ const path = require('path');
 const config = require('./config');
 
 let isJidGroup;
+let jidNormalizedUser;
 try {
-    ({ isJidGroup } = require('@whiskeysockets/baileys'));
+    ({ isJidGroup, jidNormalizedUser } = require('@whiskeysockets/baileys'));
 } catch {
     isJidGroup = (jid) => typeof jid === 'string' && jid.endsWith('@g.us');
+    jidNormalizedUser = (jid) => jid;
+}
+
+// WhatsApp may deliver group participants as internal LIDs. Resolve them to
+// the phone-number JID before displaying or mentioning a user. The resolver
+// names differ between Baileys releases, so keep compatible fallbacks.
+async function resolveParticipantJid(sock, jid, metadata = null) {
+    if (!jid) return jid;
+    const normalized = jidNormalizedUser ? jidNormalizedUser(jid) : jid;
+    if (!/@lid$/i.test(normalized)) return normalized;
+    const resolvers = [sock?.getPNForLID, sock?.getPnForLid].filter(fn => typeof fn === 'function');
+    for (const resolver of resolvers) {
+        for (const candidate of [normalized, normalized.replace(/@lid$/i, '')]) {
+            try {
+                const mapped = await resolver.call(sock, candidate);
+                if (mapped && !/@lid$/i.test(mapped)) return jidNormalizedUser(mapped);
+            } catch (_) { /* try the next compatible resolver */ }
+        }
+    }
+    const participant = metadata?.participants?.find(p =>
+        p?.id === jid || p?.lid === jid || p?.lid === normalized || p?.jid === jid
+    );
+    const phoneJid = participant?.phoneNumber || participant?.pn || participant?.jid;
+    return phoneJid && !/@lid$/i.test(phoneJid) ? jidNormalizedUser(phoneJid) : normalized;
 }
 
 // ─── Permission constants ────────────────────────────────────────────────────
@@ -164,7 +189,7 @@ async function handleMessages(sock, message) {
         // jid  = the chat to respond to (group JID or private JID)
         // from = the individual who typed the command
         const jid    = message.key.remoteJid;
-        const from   = message.key.participant || jid;
+        let from      = await resolveParticipantJid(sock, message.key.participant || jid);
         // sender = chat JID for responses (matches legacy plugin expectation of m.key.remoteJid)
         const sender = jid;
         if (!jid || !from) return;
@@ -255,7 +280,7 @@ async function handleMessages(sock, message) {
         // ── Resolve owner ─────────────────────────────────────────────────────
         // fromMe = owner is using their own device as the bot
         const ownerNum  = (config.OWNER_NUMBER || '').replace(/\D/g, '');
-        const fromNum   = from.replace(/:[^@]+/, '').replace(/\D/g, '');
+        let fromNum   = from.replace(/:[^@]+/, '').replace(/\D/g, '');
         const isOwner   = message.key.fromMe || fromNum === ownerNum;
 
         // ── Resolve group admin status ────────────────────────────────────────
@@ -265,6 +290,8 @@ async function handleMessages(sock, message) {
 
         if (isGroup) {
             groupMetadata = await getCachedGroupMetadata(sock, jid);
+            from = await resolveParticipantJid(sock, from, groupMetadata);
+            fromNum = from.replace(/:[^@]+/, '').replace(/\D/g, '');
             if (groupMetadata?.participants) {
                 const botNum = (sock.user?.id || '').replace(/:[^@]+/, '').replace(/\D/g, '');
                 for (const p of groupMetadata.participants) {
